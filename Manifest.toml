@@ -6,6 +6,15 @@ manifest_format = "2.0"
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
+[[deps.Base64]]
+uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[deps.CGcoefficient]]
+deps = ["Markdown", "Primes", "Test"]
+git-tree-sha1 = "93826412ce7ec8d1f2bbecea6b595be97d95a9bf"
+uuid = "c862aa61-d51e-47d1-b396-b1e789b4e0b6"
+version = "0.2.1"
+
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
@@ -14,6 +23,10 @@ uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 git-tree-sha1 = "dc0ce9efc3d88c6cefc4e1f9c29b397be8734cfc"
 uuid = "f0d1745a-41c9-11e9-1dd9-e5d34d218721"
 version = "1.4.2"
+
+[[deps.InteractiveUtils]]
+deps = ["Markdown"]
+uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[deps.LRUCache]]
 git-tree-sha1 = "d64a0aff6691612ab9fb0117b0995270871c5dfc"
@@ -26,6 +39,13 @@ uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 [[deps.LinearAlgebra]]
 deps = ["Libdl", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+
+[[deps.Logging]]
+uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
+
+[[deps.Markdown]]
+deps = ["Base64"]
+uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[deps.NamedTupleTools]]
 git-tree-sha1 = "63831dcea5e11db1c0925efe5ef5fc01d528c522"
@@ -52,10 +72,24 @@ git-tree-sha1 = "984a3ee07d47d401e0b823b7d30546792439070a"
 uuid = "27ebfcd6-29c5-5fa9-bf4b-fb8fc14df3ae"
 version = "0.5.1"
 
+[[deps.Random]]
+deps = ["SHA", "Serialization"]
+uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
 [[deps.RationalRoots]]
 git-tree-sha1 = "52315cf3098691c1416a356925027af5ab5bf548"
 uuid = "308eb6b3-cc68-5ff3-9e97-c3c4da4fa681"
 version = "0.2.0"
+
+[[deps.SHA]]
+uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+
+[[deps.Serialization]]
+uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+
+[[deps.Test]]
+deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
+uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[deps.UnPack]]
 git-tree-sha1 = "387c1f73762231e86e0c9c5443ce3b4a0a9a0c2b"

@@ -4,6 +4,7 @@ authors = ["christian-hh <christianhallas@g.harvard.edu>"]
 version = "0.1.0"
 
 [deps]
+CGcoefficient = "c862aa61-d51e-47d1-b396-b1e789b4e0b6"
 HalfIntegers = "f0d1745a-41c9-11e9-1dd9-e5d34d218721"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NamedTupleTools = "d9ec5142-1e00-5aa0-9d6a-321866360f50"
