@@ -32,7 +32,8 @@ function Base.show(io::IO, m::MIME"text/latex", state::State)
     basis_type = typeof(basis[1])
     
     printed = false
-    fields = fieldnames(basis_type)
+    fields = fieldnames(basis_type)[2:end-1]
+    
     for (i, coeff) in enumerate(coeffs)
         str = "\$\$"
         basis_state = basis[i]
@@ -72,8 +73,13 @@ function print_matrix(A)
     println("Real part:")
     for i in 1:size(A, 1)
         for j in 1:size(A, 2)
-            A_ij = round(A[i,j], digits=2)
-            print(real(A_ij), " ")
+            A_ij = real(A[i,j])
+            if abs(A_ij) < 1e-5
+                A_ij = convert(Int64, floor(A_ij))
+            else
+                A_ij = round(A_ij, digits=2)
+            end
+            print(A_ij, " ")
         end
         println()
     end
@@ -81,8 +87,13 @@ function print_matrix(A)
     println("Imaginary part:")
     for i in 1:size(A, 1)
         for j in 1:size(A, 2)
-            A_ij = round(A[i,j], digits=2)
-            print(imag(A_ij), " ")
+            A_ij = imag(A[i,j])
+            if abs(A_ij) < 1e-5
+                A_ij = convert(Int64, floor(A_ij))
+            else
+                A_ij = round(A_ij, digits=2)
+            end
+            print(A_ij, " ")
         end
         println()
     end

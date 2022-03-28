@@ -1,7 +1,13 @@
 import WignerSymbols: wigner3j, wigner6j
+using CompositeStructs
 
 abstract type BasisState end
+export BasisState
 
+Base.@kwdef struct QuantumState <: BasisState
+    E::Float64 = 0.0
+end
+    
 struct State
     basis::Vector{BasisState}
     coeffs::Vector{ComplexF64}

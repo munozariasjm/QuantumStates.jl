@@ -5,7 +5,11 @@ version = "0.1.0"
 
 [deps]
 CGcoefficient = "c862aa61-d51e-47d1-b396-b1e789b4e0b6"
+CompositeStructs = "534720e6-2374-40c5-8712-bf9a2f1643c6"
 HalfIntegers = "f0d1745a-41c9-11e9-1dd9-e5d34d218721"
+IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
+InfiniteArrays = "4858937d-0d70-526a-a4dd-2d5cb5dd786c"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NamedTupleTools = "d9ec5142-1e00-5aa0-9d6a-321866360f50"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"

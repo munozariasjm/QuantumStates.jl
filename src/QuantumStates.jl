@@ -38,9 +38,56 @@ export δ
     basis::Vector{<:BasisState}
     H_operator::T
     M::Array{ComplexF64, 2} = [H_operator(state, state′) for state in basis, state′ in basis]
-#     M::Array{ComplexF64, 2} = zeros(ComplexF64, length(basis), length(basis))
 end
 export Hamiltonian
+
+function collapse!(H::Hamiltonian, collapsed_QNs)
+    """
+    Reduces a Hamiltonian by aggregating states that have the same quantum numbers,
+    other than those included in `collapsed_QNs`. For each one of the aggregated 
+    states, the corresponding entry in the Hamiltonian is the sum of all the entries
+    for the original states that "collapse" into this state.
+    """
+    state_type = typeof(H.basis[1])
+    QNs = fieldnames(state_type)[1:end-1]
+    
+    new_QNs = setdiff(QNs, collapsed_QNs)
+    new_basis = BasisState[]
+    basis_mapping = zeros(Int64, length(H.basis))
+    prev_QN_vals = zeros(Rational, length(new_QNs))
+    prev_QN_vals .= Inf
+    idx = 0
+    multi
+    
+    for (i, state) in enumerate(H.basis)
+        multiplicity = 0
+        added_state = false
+        for (j, QN) in enumerate(new_QNs)
+            QN_val = getfield(state, QN)
+            if QN_val != prev_QN_vals[j] && !added_state
+                push!(new_basis, state)
+                added_state = true
+                idx += 1
+            end
+            prev_QN_vals[j] = QN_val
+        end
+        basis_mapping[i] = idx
+    end
+    
+    new_H = zeros(Complex, length(new_basis), length(new_basis))
+    for (i, state) in enumerate(H.basis)
+        for (j, state) in enumerate(H.basis)
+            idx1 = basis_mapping[i]
+            idx2 = basis_mapping[j]
+            new_H[idx1,idx2] += H.M[i,j]
+        end
+    end
+    
+    H.M = new_H
+    H.basis = new_basis
+    return nothing
+end
+export collapse!
 
 function solve(H::Hamiltonian; kwargs...)
     basis = H.basis
@@ -77,94 +124,121 @@ function findindex(QNs, QN::Symbol)
     return (exists, i)
 end
 
-function enumerate_states(η, state_type, QN_bounds)
+function enumerate_states(state_type, QN_bounds)
     states = state_type[]
-    QNs = fieldnames(state_type)
+    QNs = fieldnames(state_type)[1:end-1]
+    
+    # Define a state with all QN = 0 to get the constraints for the QNs
+    η = NamedTuple([QN => 0 for QN in QNs])
+    
+    enumerate_states(η, states, state_type, QNs, QN_bounds, 1)
 
-    bounds_exist = true
-    earliest_bound_idx = length(QNs)
-    for bound_QN in keys(QN_bounds)
-        bound_QN_exists, QN_idx_in_state = findindex(QNs, bound_QN)
-        if bound_QN_exists
-            if QN_idx_in_state < earliest_bound_idx
-                earliest_bound_idx = QN_idx_in_state
-            end
-        else
-            bounds_exist = false
-        end
-    end
-
-    if bounds_exist
-        enumerate_states(η, QNs, states, state_type, QN_bounds, earliest_bound_idx)
-    else
-        error("Bounded quantum number does not exist in this basis.")
-    end
     return states
 end
 
-function enumerate_states(η, QNs, states, state_type, QN_bounds, idx, max_states=1000)
+function enumerate_states(η, states, state_type, QNs, QN_bounds, idx, max_states=1000)
 
     if length(states) > max_states
         return false
     end
 
-    return_val = true
-    try
-        new_state = state_type(; η...)
-        return_val = true
-    catch
-        return_val = false
-    end
-
     if idx == length(QNs) + 1
-        # new_state = state_type(; η...)
-        try
-            new_state = state_type(; η...)
-            push!(states, new_state)
-            return true
-        catch
-            return false
-        end
+        new_state = state_type(; η...)
+        push!(states, new_state)
+        return nothing
     end
-
-    # Check if quantum number has been given bounds
+    
+    # Check if quantum number has been given bounds; else apply constraints
     iterated_QN = QNs[idx]
-    QN_bounded = false
-    if iterated_QN in keys(QN_bounds)
-        QN_bounded = true
+
+    QN_constraints = state_type(; η...).constraints
+    if iterated_QN ∈ keys(QN_constraints)
+        QN_constraint = QN_constraints[iterated_QN]
+        QN_constraint_bounds = eval(QN_constraint)
+    end
+    
+    if iterated_QN ∈ keys(QN_bounds)
         bounds = QN_bounds[iterated_QN]
-        if η[iterated_QN] ∉ bounds
-            η = (; η..., iterated_QN => bounds[1])
+        for i ∈ bounds
+            if iterated_QN ∉ keys(QN_constraints) || (i ∈ QN_constraint_bounds)
+                η′ = (; η..., iterated_QN => i)
+                enumerate_states(η′, states, state_type, QNs, QN_bounds, idx + 1)
+            end
         end
+    elseif iterated_QN ∈ keys(QN_constraints)
+        for i ∈ QN_constraint_bounds
+            η′ = (; η..., iterated_QN => i)
+            enumerate_states(η′, states, state_type, QNs, QN_bounds, idx + 1)
+        end
+    else
+        enumerate_states(η, states, state_type, QNs, QN_bounds, idx + 1)
     end
-
-    keep_iterating = enumerate_states(η, QNs, states, state_type, QN_bounds, idx + 1, max_states)
-
-    i = η[iterated_QN] + 1
-    keep_iterating = true
-    # while keep_iterating && ((!QN_bounded) || (QN_bounds[iterated_QN][1] <= i <= QN_bounds[iterated_QN][2]))
-    while keep_iterating && ((!QN_bounded) || (i ∈ bounds))
-        η′ = (; η..., iterated_QN => i)
-#         println(η′)
-#         println(iterated_QN, i)
-        keep_iterating = enumerate_states(η′, QNs, states, state_type, QN_bounds, idx + 1, max_states)
-        i += 1
-    end
-
-    i = η[iterated_QN] - 1
-    keep_iterating = true
-    # while keep_iterating && ((!QN_bounded) || (QN_bounds[iterated_QN][1] <= i <= QN_bounds[iterated_QN][2]))
-    while keep_iterating && ((!QN_bounded) || (i ∈ bounds))
-        η′ = (; η..., iterated_QN => i)
-#         println(η′)
-#         println(iterated_QN, i)
-        keep_iterating = enumerate_states(η′, QNs, states, state_type, QN_bounds, idx + 1, max_states)
-        i -= 1
-    end
-
-    return return_val
+    
+    return nothing
 end
 export enumerate_states
+
+# function enumerate_states(η, QNs, states, state_type, QN_bounds, idx, max_states=1000)
+
+#     if length(states) > max_states
+#         return false
+#     end
+
+#     return_val = true
+#     try
+#         new_state = state_type(; η...)
+#         return_val = true
+#     catch
+#         return_val = false
+#     end
+
+#     if idx == length(QNs) + 1
+#         # new_state = state_type(; η...)
+#         try
+#             new_state = state_type(; η...)
+#             push!(states, new_state)
+#             return true
+#         catch
+#             return false
+#         end
+#     end
+    
+#     # Check if quantum number has been given bounds
+#     iterated_QN = QNs[idx]
+#     QN_bounded = false
+#     if iterated_QN in keys(QN_bounds)
+#         QN_bounded = true
+#         bounds = QN_bounds[iterated_QN]
+#         if η[iterated_QN] ∉ bounds
+#             η = (; η..., iterated_QN => bounds[1])
+#         end
+#     end
+            
+#     i = η[iterated_QN] + 1
+#     keep_iterating = true
+#     # while keep_iterating && ((!QN_bounded) || (QN_bounds[iterated_QN][1] <= i <= QN_bounds[iterated_QN][2]))
+#     while keep_iterating && ((!QN_bounded) || (i ∈ bounds))
+#         η′ = (; η..., iterated_QN => i)
+# #         println(η′)
+# #         println(iterated_QN, i)
+#         keep_iterating = enumerate_states(η′, QNs, states, state_type, QN_bounds, idx + 1, max_states)
+#         i += 1
+#     end
+    
+#     i = η[iterated_QN] - 1
+#     keep_iterating = true
+#     # while keep_iterating && ((!QN_bounded) || (QN_bounds[iterated_QN][1] <= i <= QN_bounds[iterated_QN][2]))
+#     while keep_iterating && ((!QN_bounded) || (i ∈ bounds))
+#         η′ = (; η..., iterated_QN => i)
+# #         println(η′)
+# #         println(iterated_QN, i)
+#         keep_iterating = enumerate_states(η′, QNs, states, state_type, QN_bounds, idx + 1, max_states)
+#         i -= 1
+#     end
+    
+#     return return_val
+# end
+# export enumerate_states
 
 # function convert_basis(H::Hamiltonian, basis′, overlap)
 
@@ -204,22 +278,29 @@ export enumerate_states
 # end
 # export convert_basis
 
-function get_subspace(states, QN_bounds)
-    new_basis = []
-
-    QN_bound_symbol = keys(QN_bounds)[1]
-    bounds = QN_bounds[1][1], QN_bounds[1][2]
-
-    for (i, state) in enumerate(states.basis)
-        state_val = getfield(state, QN_bound_symbol)
-        if bounds[1] <= state_val <= bounds[2]
-            push!(states_bare, state)
+function subspace(basis::Vector{<:BasisState}, QN_bounds)
+    subspace_basis = BasisState[]
+    subspace_idxs = Int64[]
+    QNs = keys(QN_bounds)
+    
+    for (i, state) in enumerate(basis)
+        add_state = true
+        for (j, bounds) in enumerate(QN_bounds)
+            QN = QNs[j]
+            state_val = getfield(state, QN)
+            if !(bounds[1] <= state_val <= bounds[2])
+                add_state = false
+                break
+            end
+        end
+        if add_state
+            push!(subspace_idxs, i)
+            push!(subspace_basis, state)
         end
     end
-
-    return States(basis=states_bare)
+    return (subspace_idxs, subspace_basis)
 end
-export get_subspace
+export subspace
 
 @with_kw mutable struct HundsCaseA_Parity <: BasisState
     S::HalfInteger
@@ -253,15 +334,17 @@ end
 export HundsCaseA_Parity
 
 # Extend the base "+" function such that we can simply add matrix elements before calling them
-import Base.+, Base.*
+import Base.+, Base.*, Base.^
 
 +(f::Function, g::Function) =
     (args...; kwargs...) -> f(args...; kwargs...) + g(args...; kwargs...)
 *(f::Function, g::Function) =
     (args...; kwargs...) -> f(args...; kwargs...) * g(args...; kwargs...)
-*(c::Float64, f::Function) =
+*(c::Number, f::Function) =
     (args...; kwargs...) -> c * f(args...; kwargs...)
-export +, *
+^(f::Function, c::Real) = 
+    (args...; kwargs...) -> f(args...; kwargs...)^c
+export +, *, ^
 
 function overlap(state::HundsCaseB, state′::HundsCaseA)
     # Eq. (6.149) in Brown & Carrington

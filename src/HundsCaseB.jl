@@ -1,4 +1,6 @@
 using Parameters
+using InfiniteArrays
+using CompositeStructs
 
 # Define the spherical tensor T^k_q(ϵ), here for linear and symmetric top molecules
 const T = [
@@ -7,28 +9,26 @@ const T = [
     0 0 0
     ]
 
-@with_kw struct HundsCaseB <: BasisState
+abstract type HundsCaseB <: BasisState end
+export HundsCaseB
+
+@composite Base.@kwdef struct HundsCaseB_Rot <: HundsCaseB
+    E::Float64 = 0.0
     S::Rational 
     I::Rational
-    Λ::Rational 
-    N::Rational 
+    Λ::Rational
+    N::Rational
     J::Rational 
     F::Rational
     M::Rational
-    function HundsCaseB(S, I, Λ, N, J, F, M)
-        if abs(Λ) > N
-            error("|Λ| > N")
-        elseif !(abs(N - S) <= J <= N + S)
-            error("J > N + S")
-        elseif !(abs(J - I) <= F <= J + I)
-            error("F > I + J")
-        elseif abs(M) > F
-            error("|M| > F")
-        end
-        return new(S, I, Λ, N, J, F, M)
-    end
+    constraints = (
+        N = abs(Λ):∞,
+        J = abs(N - S):abs(N + S),
+        F = abs(J - I):abs(J + I),
+        M = -F:F
+    )
 end
-export HundsCaseB
+export HundsCaseB_Rot
 
 function unpack(state::HundsCaseB)
     return (state.S, state.I, state.Λ, state.N, state.J, state.F, state.M)
@@ -163,21 +163,6 @@ function Stark(state::HundsCaseB, state′::HundsCaseB)
 end
 export Stark
 
-# function Zeeman(state::HundsCaseB, state′::HundsCaseB)
-#     # Hirota, equation (2.5.16) and (2.5.19)
-#     S, I, N, Λ, J, F, M = unpack(state)   
-#     S′, I′, N′, Λ′, J′, F′, M′ = unpack(state′)
-#     return (-1)^(F - M) *
-#         wigner3j_(F, 1, F′, -M, 0, M) *
-#         (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * 
-#         wigner6j_(J, F, I, F′, J′, 1) *
-#         (-1)^(N′ + S + J + 1) * 
-#         sqrt( (2J + 1) * (2J′ + 1) * S * (S + 1) * (2S + 1) ) *
-#         wigner6j_(S, J, N′, J′, S, 1) * 
-#         δ(N, N′) * δ(M, M′) * δ(S, S′)
-# end
-# export Zeeman
-
 function Zeeman(state::HundsCaseB, state′::HundsCaseB)
     # Hirota, equation (2.5.16) and (2.5.19)
     S, I, Λ, N, J, F, M = unpack(state)
@@ -193,4 +178,14 @@ function Zeeman(state::HundsCaseB, state′::HundsCaseB)
 end
 export Zeeman
 
-    
+function TDM(state::HundsCaseB, state′::HundsCaseB, p::Int64)
+    S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
+    S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
+    return -(-1)^p * (-1)^(F - M) * wigner3j_(F, 1, F′, -M, p, M′) *
+#     return (-1)^(F - M) * wigner3j_(F, 1, F′, -M, p, M′) *
+        (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j_(J, F, I, F′, J′, 1) *
+        (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) ) * wigner6j_(N, J, S, J′, N′, 1) *
+        (-1)^(N - Λ) * sqrt( (2N + 1) * (2N′ + 1) ) * sum(wigner3j_(N, 1, N′, -Λ, q, Λ′) for q in -1:1)
+end
+TDM(state, state′) = sum(TDM(state, state′, p) for p ∈ -1:1)
+export TDM
