@@ -149,17 +149,16 @@ export ℓDoubling
 
 function Stark(state::HundsCaseB, state′::HundsCaseB)
     # Hirota, equation (2.5.35)
-    S, I, Λ, N, J, F, M = unpack(state)
+    S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
-    return (-1)^(F - M) * 
+    return -(-1)^(F - M) * 
         wigner3j_(F, 1, F′, -M, 0, M′) * 
         (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) *
         wigner6j_(J, F, I, F′, J′, 1) *
         (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) ) *
         wigner6j_(N, J, S, J′, N′, 1) *
         (-1)^(N - Λ) * sqrt( (2N + 1) * (2N′ + 1) ) *
-        wigner3j_(N, 1, N′, -Λ, 0, Λ′) *
-        δ(S, S′)
+        wigner3j_(N, 1, N′, -Λ, 0, Λ′)
 end
 export Stark
 
@@ -174,7 +173,7 @@ function Zeeman(state::HundsCaseB, state′::HundsCaseB)
         (-1)^(N + S + J + 1) * 
         sqrt( (2J + 1) * (2J′ + 1) * S * (S + 1) * (2S + 1) ) *
         wigner6j_(S, J′, N, J, S, 1) * 
-        δ(Λ, Λ′) * δ(N, N′) * δ(M, M′) * δ(S, S′)
+        δ(Λ, Λ′) * δ(N, N′) * δ(M, M′)
 end
 export Zeeman
 
@@ -188,4 +187,16 @@ function TDM(state::HundsCaseB, state′::HundsCaseB, p::Int64)
         (-1)^(N - Λ) * sqrt( (2N + 1) * (2N′ + 1) ) * sum(wigner3j_(N, 1, N′, -Λ, q, Λ′) for q in -1:1)
 end
 TDM(state, state′) = sum(TDM(state, state′, p) for p ∈ -1:1)
+
+function TDM(state::State, state′::State, args...)
+    tdm = 0.0
+    for (i, basis_state) in enumerate(state.basis)
+        for (j, basis_state′) in enumerate(state′.basis)
+            tdm += state.coeffs[i] * conj(state′.coeffs[j]) * TDM(basis_state, basis_state′, args...)
+        end
+    end
+    return tdm
+end
 export TDM
+    
+    

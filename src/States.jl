@@ -9,6 +9,7 @@ Base.@kwdef struct QuantumState <: BasisState
 end
     
 struct State
+    E::Float64
     basis::Vector{BasisState}
     coeffs::Vector{ComplexF64}
 end

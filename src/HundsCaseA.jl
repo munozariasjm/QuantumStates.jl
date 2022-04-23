@@ -1,30 +1,26 @@
 using Parameters
 
-@with_kw struct HundsCaseA <: BasisState
+abstract type HundsCaseA <: BasisState end
+export HundsCaseA
+
+@composite Base.@kwdef struct HundsCaseA_Rot <: HundsCaseA
+    E::Float64 = 0.0
     I::Rational
     S::Rational
+    Σ::Rational
     Λ::Rational
     J::Rational
     Ω::Rational
-    Σ::Rational
     F::Rational
     M::Rational
-    function HundsCaseA(I, S, Λ, J, Ω, Σ, F, M)
-        if abs(Σ) > S
-            error("|Σ| > S")
-        elseif !(abs(I - J) <= F <= abs(I + J))
-            error("F < |I - J| or F > |I + J|")
-        elseif !(Ω == Σ + Λ)
-            error("Ω != Σ + Λ")
-        elseif abs(Ω) > J
-            error("|Ω| > J")
-        elseif abs(M) > F
-            error("|M| > F")
-        end
-        return new(I, S, Λ, J, Ω, Σ, F, M)
-    end
+    constraints = (
+        Σ = -S:S,
+        Ω = max(-J, Λ + Σ):min(J, Λ + Σ),
+        F = abs(J - I):abs(J + I),
+        M = -F:F
+    )
 end
-export HundsCaseA
+export HundsCaseA_Rot
 
 function unpack(state::HundsCaseA)
     return (state.I, state.S, state.Λ, state.J, state.Ω, state.Σ, state.F, state.M)
@@ -32,7 +28,7 @@ end
 export unpack
 
 function Rotation(state::HundsCaseA, state′::HundsCaseA)
-    I, S, Λ, J, Ω, Σ, F, M = unpack(state)
+    I,  S,  Λ,  J,  Ω,  Σ,  F,  M  = unpack(state)
     I′, I′, Λ′, J′, Ω′, Σ′, F′, M′ = unpack(state′)
     return (J * (J + 1) + S * (S + 1) + Λ^2 - 2 * Ω^2 + 2Λ * Σ) *
         δ(Λ, Λ′) * δ(Σ, Σ′) * δ(Λ, Λ′) * δ(J, J′) * δ(Ω, Ω′) * δ(F, F′) * δ(M, M′)
@@ -140,7 +136,7 @@ function Hyperfine_Dipolar_c(state::HundsCaseA, state′::HundsCaseA)
         δ(F, F′) * δ(M, M′)
 end
 export Hyperfine_Dipolar_c
-    
+
 function Hyperfine_Dipolar_d(state::HundsCaseA, state′::HundsCaseA)
     I, S, Λ, J, Ω, Σ, F, M = unpack(state)
     I′, I′, Λ′, J′, Ω′, Σ′, F′, M′ = unpack(state′)

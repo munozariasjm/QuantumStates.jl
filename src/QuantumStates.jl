@@ -37,9 +37,20 @@ export δ
 @with_kw mutable struct Hamiltonian{T}
     basis::Vector{<:BasisState}
     H_operator::T
-    M::Array{ComplexF64, 2} = [H_operator(state, state′) for state in basis, state′ in basis]
+    M::Array{ComplexF64, 2} = zeros(ComplexF64, length(basis), length(basis))
+#     M::Array{ComplexF64, 2} = [H_operator(state, state′) for state in basis, state′ in basis]
 end
 export Hamiltonian
+
+function update_matrix!(H::Hamiltonian)
+    for (i, state) ∈ enumerate(H.basis)
+        for (j, state′) ∈ enumerate(H.basis)
+            H.M[i,j] = H.H_operator(state, state′)
+        end
+    end
+    return nothing
+end
+export update_matrix!
 
 function collapse!(H::Hamiltonian, collapsed_QNs)
     """
@@ -102,6 +113,7 @@ function solve(H::Hamiltonian; kwargs...)
     for (i, state) in enumerate(basis)
         for (j, state′) in enumerate(basis)
             H_basis[i,j] = H_operator(state, state′)
+#             println(H_basis[i,j])
         end
     end
     H.M = H_basis #states * H_basis * states'
@@ -348,9 +360,9 @@ export +, *, ^
 
 function overlap(state::HundsCaseB, state′::HundsCaseA)
     # Eq. (6.149) in Brown & Carrington
-    S, I, Λ, N, J, F, M = state.S, state.I, state.Λ, state.N, state.J, state.F, state.M
-    S′, I′, Λ′, Σ′, Ω′, J′, F′, M′ = state′.S, state′.I, state′.Λ, state′.Σ, state′.Ω, state′.J, state′.F, state′.M
-    return (-1)^(N - S + Ω′) * sqrt(2N + 1) * wigner3j_(J, S, N, Ω′, -Σ′, -Λ) * δ(J, J′) * δ(M, M′) * δ(F, F′)
+    S,  I,  Λ,  N,  J,  F,  M    = state.S, state.I, state.Λ, state.N, state.J, state.F, state.M
+    S′, I′, Λ′, Σ, Ω, J′, F′, M′ = state′.S, state′.I, state′.Λ, state′.Σ, state′.Ω, state′.J, state′.F, state′.M
+    return (-1)^(J - S + Λ) * sqrt(2N + 1) * wigner3j_(J, S, N, Ω, -Σ, -Λ) # * δ(F, F′) * δ(M, M′)
 end
 overlap(state::HundsCaseA, state′::HundsCaseB) = overlap(state′, state)
 
