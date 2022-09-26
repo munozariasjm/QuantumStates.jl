@@ -12,7 +12,7 @@ const μB = 1.39962
 const h = 6.62607015e-34
 const ħ = h / 2π
 const ε0 = 8.8541878128e-12
-const μX = 1e-6 * 1.465 * (1e-21 / c) / h; # for CaOH, in MHz
+const μX = 1e-6 * 1.465 * (1e-21 / c) / h; # for CaOH
 export c, gS, μB, h, ħ, ε0, μX
 
 using HalfIntegers
@@ -32,19 +32,10 @@ end
 mutable struct State{T<:BasisState}
     E::Float64
     basis::Vector{T}
-    coeffs::Vector{ComplexF64}
+    coeffs::Vector{Float64}
     idx::Int64
 end
 export State
-
-function expectation(state::State, s::Symbol)
-    exp = zero(ComplexF64)
-    for i ∈ eachindex(state.basis)
-        exp += getfield(state.basis[i], s) * state.coeffs[i] * conj(state.coeffs[i])
-    end
-    return exp
-end
-export expectation 
 
 energy(s::State) = s.E
 export energy
@@ -56,7 +47,7 @@ function states_from_basis(
     Returns a vector of states based on a basis, energies (`es') and a matrix of coefficients (`coeffs').
     """
     
-    states = [State(0.0, basis, zeros(ComplexF64, length(basis)), i) for i in 1:length(basis)]
+    states = [State(0.0, basis, zeros(Float64, length(basis)), i) for i in 1:length(basis)]
     for i in eachindex(basis)
         states[i].coeffs[i] = 1.0
     end
@@ -205,32 +196,17 @@ function subspace(states::Vector{State{T}}, QN_bounds, threshold=0.01) where {T}
     end
     return (subspace_idxs, subspace)
 end
-
-# function subspace(H::Hamiltonian, QN_bounds)
-#     """
-#     Choose a subspace of a Hamiltonian by selecting a subset of the eigenstates.
-#     """
-#     H_subspace = deepcopy(H)
-#     subspace_idxs, _ = subspace(H.states, QN_bounds)
-
-#     H_subspace.states = H
-#     H_subspace.matrix = H_subspace.matrix[subspace_idxs, subspace_idxs]
-#     for i ∈ eachindex(H.operators)
-#         H.operators[i].matrix = H.operators[i].matrix[subspace_idxs, subspace_idxs]
-#     end
-
-# export subspace
+export subspace
 
 function extend_operator(operator::T, state::State, state′::State, args...) where {T}
     val = zero(ComplexF64)
     for (i, basis_state) in enumerate(state.basis)
         for (j, basis_state′) in enumerate(state′.basis)
-            val += state.coeffs[i] * state′.coeffs[j] * operator(basis_state, basis_state′, args...)
-            # coeff1 = state.coeffs[i]
-            # coeff2 = state′.coeffs[i]
-            # if (norm(coeff1)^2 > 1e-5) && (norm(coeff1)^2 > 1e-5)
-                # val += state.coeffs[i] * state′.coeffs[j] * operator(basis_state, basis_state′, args...)
-            # end
+            coeff1 = state.coeffs[i]
+            coeff2 = state′.coeffs[i]
+            if (norm(coeff1)^2 > 1e-5) && (norm(coeff1)^2 > 1e-5)
+                val += state.coeffs[i] * state′.coeffs[j] * operator(basis_state, basis_state′, args...)
+            end
         end
     end
     return val
@@ -241,12 +217,11 @@ function TDM(state::State, state′::State, args...)
     tdm = zero(ComplexF64)
     for (i, basis_state) in enumerate(state.basis)
         for (j, basis_state′) in enumerate(state′.basis)
-            tdm += conj(state.coeffs[i]) * state′.coeffs[j] * TDM(basis_state, basis_state′, args...)
-            # coeff1 = state.coeffs[i]
-            # coeff2 = state′.coeffs[i]
-            # if (norm(coeff1)^2 > 1e-5) && (norm(coeff2)^2 > 1e-5)
-                # tdm += state.coeffs[i] * state′.coeffs[j] * TDM(basis_state, basis_state′, args...)
-            # end
+            coeff1 = state.coeffs[i]
+            coeff2 = state′.coeffs[i]
+            if (norm(coeff1)^2 > 1e-5) && (norm(coeff1)^2 > 1e-5)
+                tdm += state.coeffs[i] * state′.coeffs[j] * TDM(basis_state, basis_state′, args...)
+            end
         end
     end
     return tdm
@@ -255,7 +230,7 @@ export TDM
 
 function convert_basis(states::Vector{State{T}}, basis′) where {T}
 
-    new_states = State{typeof(basis′[1])}[]
+    new_states = State[]
     basis = states[1].basis
 
     # Calculate change-of-basis matrix
@@ -263,9 +238,6 @@ function convert_basis(states::Vector{State{T}}, basis′) where {T}
     for (i, state) in enumerate(basis′)
         for (j, state′) in enumerate(basis)
             P[i,j] = overlap(state, state′)
-            # if P[i,j] > 0.0
-            #     println(P[i,j])
-            # end
         end
     end
 
@@ -362,7 +334,7 @@ export ParameterList
 struct Operator{F}
     param::Symbol
     operator::F
-    matrix::Matrix{ComplexF64}
+    matrix::Matrix{Float64}
 end
 export Operator
 
@@ -370,43 +342,12 @@ export Operator
     basis::Vector{T}
     operator::Expr
     parameters::ParameterList
-    states::Vector{State{T}}         = states_from_basis(basis)
-    operators::F                     = unpack_operator(operator, basis)
-    matrix::Matrix{ComplexF64}       = sum(parameters.param_dict[operator.param] .* operator.matrix for operator ∈ operators)
-    tdms::Array{ComplexF64, 3}       = zeros(ComplexF64, length(states), length(states), 3)
-    basis_tdms::Array{ComplexF64, 3} = zeros(ComplexF64, length(basis), length(basis), 3)
+    states::Vector{State{T}}    = states_from_basis(basis)
+    operators::F                = unpack_operator(operator, basis)
+    matrix::Matrix{Float64}     = sum(parameters.param_dict[operator.param] .* operator.matrix for operator ∈ operators)
+    tdms::Matrix{Float64}       = zeros(Float64, length(basis), length(basis))
 end
 export Hamiltonian
-
-function update_basis_tdms!(H::Hamiltonian)
-    for (i, bstate) ∈ enumerate(H.basis)
-        for (j, bstate′) ∈ enumerate(H.basis)
-            for p ∈ -1:1
-                H.basis_tdms[i,j,p+2] = TDM(bstate, bstate′, p)
-            end
-        end
-    end
-    return nothing
-end
-export update_basis_tdms!
-
-function update_tdms!(H::Hamiltonian, idxs=eachindex(H.states))
-    for i ∈ idxs, j ∈ idxs
-        if j >= i
-            state = H.states[i]
-            state′ = H.states[j]
-            for p ∈ -1:1
-                H.tdms[i,j,p+2] = H.tdms[j,i,p+2] = 0.0
-                for m ∈ eachindex(H.basis), n ∈ eachindex(H.basis)
-                    H.tdms[i,j,p+2] += conj(state.coeffs[m]) * state′.coeffs[n] * H.basis_tdms[m,n,p+2]
-                end
-                H.tdms[j,i,p+2] += conj(H.tdms[i,j,p+2])
-            end
-        end
-    end
-    return nothing
-end
-export update_tdms!
 
 function add_to_H(H::Hamiltonian, param::Symbol, f::Function)
     operator = Expr(:call, :+, H.operator, f)
@@ -414,7 +355,7 @@ function add_to_H(H::Hamiltonian, param::Symbol, f::Function)
     param_dict = Dict(H.parameters.param_dict..., param => 0.0) # any new term added has its parameter value set to zero as default
     parameters = ParameterList(param_dict)
     operators = (; H.operators..., param => Operator(param, f, matrix))
-    return Hamiltonian(H.basis, operator, parameters, H.states, operators, H.matrix, H.tdms, H.basis_tdms)
+    return Hamiltonian(H.basis, operator, parameters, H.states, operators, H.matrix, H.tdms)
 end
 export add_to_H
 
@@ -483,7 +424,7 @@ end
 export unpack_operator
 
 function matrix_from_operator(basis, operator::F) where {F}
-    m = zeros(ComplexF64, length(basis), length(basis))
+    m = zeros(Float64, length(basis), length(basis))
     for i ∈ eachindex(basis), j ∈ eachindex(basis)
         m[i,j] = operator(basis[i], basis[j])
     end
@@ -520,7 +461,7 @@ function solve!(H::Hamiltonian)
     es, vs = eigen(H.matrix)
     for i in eachindex(H.states)
         H.states[i].E = real(es[i])
-        H.states[i].coeffs = vs[:,i]
+        H.states[i].coeffs = real(vs[:,i])
     end
     return nothing
 end
@@ -702,8 +643,8 @@ function enumerate_states(η, states, state_type, QNs, QN_bounds, idx, max_state
     
     # Check if quantum number has been given bounds; else apply constraints
     iterated_QN = QNs[idx]
-    QN_constraints = state_type(; η...).constraints
 
+    QN_constraints = state_type(; η...).constraints
     if iterated_QN ∈ keys(QN_constraints)
         QN_constraint = QN_constraints[iterated_QN]
         QN_constraint_bounds = eval(QN_constraint)
@@ -873,46 +814,20 @@ mutable struct Transition
 end
 export Transition
 
-function compute_transitions(H::Hamiltonian, p, threshold=1e-8)
+function compute_transitions(H::Hamiltonian_Old, p, threshold=1e-8)
     transitions = Transition[]
     
     for (i, basis_state) ∈ enumerate(H.basis)
         for (j, basis_state′) ∈ enumerate(H.basis)
-            H.tdms[i,j] = TDM(basis_state, basis_state′, p)
+            H.M_tdms[i,j] = TDM(basis_state, basis_state′, p)
         end
     end
             
     for (i, state) ∈ enumerate(H.states)
         for (j, state′) ∈ enumerate(H.states)
             if state′.E > state.E
-                tdm = state.coeffs ⋅ (H.tdms * state′.coeffs)
+                tdm = state.coeffs ⋅ (H.M_tdms * state′.coeffs)
                 if norm(tdm) > threshold
-                    transition = Transition(state, state′, state′.E - state.E, tdm)
-                    push!(transitions, transition)
-                end
-            end
-        end
-    end
-    return transitions
-end
-
-function compute_transitions(states::Vector{<:State}, p, threshold=1e-4)
-    transitions = Transition[]
-    basis = states[1].basis
-
-    tdms = zeros(length(basis), length(basis))
-
-    for (i, basis_state) ∈ enumerate(basis)
-        for (j, basis_state′) ∈ enumerate(basis)
-            tdms[i,j] = TDM(basis_state, basis_state′, p)
-        end
-    end
-    for state ∈ states
-        for state′ ∈ states
-            if state′.E > state.E
-                tdm = state.coeffs ⋅ (tdms * state′.coeffs)
-                f = state′.E - state.E
-                if norm(tdm) > threshold && abs(f) > 1
                     transition = Transition(state, state′, state′.E - state.E, tdm)
                     push!(transitions, transition)
                 end
@@ -948,10 +863,12 @@ function transitions_table(transitions::Vector{Transition}, relabelling_states=n
     df1 = states_table(relabelled_ground_states, threshold=1e-1, dominant_state_only=true)
     df2 = states_table(relabelled_excited_states, threshold=1e-1, dominant_state_only=true)
     
+#     display(df2)
+    
     df_transitions = hcat(df1, df2, makeunique=true)
     df_transitions[!, :f] = frequencies
     df_transitions[!, :tdm] = real.(tdms)
-    sort!(df_transitions, :f)
+#     sort!(df_transitions, :f)
     
     return df_transitions
 end
@@ -964,9 +881,10 @@ export transitions_table
 # end
 # export ParameterScan2
 
-@with_kw mutable struct ParameterScan1{T<:BasisState}
-    state_dict::Dict{Float64, Vector{State{T}}}
+@with_kw mutable struct ParameterScan
+    state_dict::Dict{Float64, Vector{State}} = Dict()
 end
+export ParameterScan
 
 # import Base: getindex
 # function getindex(parameter_scan::ParameterScan{T}, params) where {T}
@@ -993,44 +911,13 @@ function tracked_idxs(overlaps)
 end
 export tracked_idxs
 
-function scan_single_parameter(H::Hamiltonian, param::Symbol, scan_range)
+function scan_single_parameter(H::Hamiltonian, param::Symbol, scan_range) where {T}
     
-    d = Dict{Float64, Vector{State{typeof(H.basis[1])}}}()
-    parameter_scan = ParameterScan1(d)
-    
-    prev_states = deepcopy(H.states)
-    for (i, scan_value) ∈ enumerate(scan_range)
-        
-        H.parameters.param_dict[param] = scan_value
-        evaluate!(H)
-        solve!(H)
-        
-        # Ensure that state indices are correctly tracked, i.e., crossing states are not swapped
-        if i != 1
-            overlaps = calculate_state_overlaps(H.states, prev_states)
-            new_idxs = tracked_idxs(overlaps)
-            # new_idxs = 1:length(H.states)
-
-            H.states = H.states[new_idxs]
-            for j in eachindex(H.states)
-                H.states[j].idx = j
-                prev_states[j].coeffs = H.states[j].coeffs
-            end
-        end
-        parameter_scan.state_dict[scan_value] = deepcopy(H.states)
-        
-    end
-    return parameter_scan
-end
-export scan_parameters
-
-function scan_single_parameter(H::Hamiltonian, param::Symbol, scan_range, f::F) where {F}
-    
-    saved_values = zeros(length(scan_range), length(H.states))
+    parameter_scan = ParameterScan()
     
     prev_states = deepcopy(H.states)
     for (i, scan_value) ∈ enumerate(scan_range)
-
+        
         H.parameters.param_dict[param] = scan_value
         evaluate!(H)
         solve!(H)
@@ -1046,13 +933,13 @@ function scan_single_parameter(H::Hamiltonian, param::Symbol, scan_range, f::F) 
                 H.states[j].idx = j
                 prev_states[j].coeffs = H.states[j].coeffs
             end
-
         end
-        saved_values[i,:] = f(deepcopy(H))
+        parameter_scan.state_dict[scan_value] = deepcopy(H.states)
         
     end
-    return saved_values
+    return parameter_scan
 end
+export scan_parameters
 export scan_single_parameter
 
 function scan_single_parameter_gfactor(H::Hamiltonian, param::Symbol, scan_range) where {T}
@@ -1138,7 +1025,7 @@ export scan_single_parameter_gfactor
 # export scan_parameters
 
 import Plots: plot
-function plot(parameter_scan::ParameterScan1, plot_ranges, plot_parameter; subspace_idxs=nothing)
+function plot(parameter_scan::ParameterScan, plot_ranges, plot_parameter; subspace_idxs=nothing)
     
     H_dict = parameter_scan.H_dict
     

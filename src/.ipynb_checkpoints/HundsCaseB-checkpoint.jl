@@ -89,10 +89,8 @@ function SpinRotation(state::HundsCaseB, state′::HundsCaseB)
                 * wigner6j(N′, S ,J, S, N, 1)
                 * sum( sqrt(2k + 1)
                 * (
-                    (-1)^k * 
-                    sqrt( N′ * (N′ + 1) * (2N′ + 1) ) * wigner6j(1, 1, k, N, N′, N′) 
-                    + 
-                    sqrt( N * (N + 1) * (2N + 1) ) * wigner6j(1, 1, k, N′, N, N)
+                    (-1)^k * sqrt( N′ * (N′ + 1) * (2N′ + 1) ) 
+                                * wigner6j(1, 1, k, N, N′, N′) + sqrt( N * (N + 1) * (2N + 1) ) * wigner6j(1, 1, k, N′, N, N)
                     )
                     * wigner3j(N, k, N′, -Λ, q, Λ′) * T[q+2, k+1]
                 for k in 0:2, q in -1:1
@@ -193,7 +191,7 @@ function Stark(state::HundsCaseB, state′::HundsCaseB)
 end
 export Stark
 
-function Zeeman(state::HundsCaseB, state′::HundsCaseB, p::Int64)
+function Zeeman(state::HundsCaseB, state′::HundsCaseB, B::Vector{Float64})
     # Hirota, equation (2.5.16) and (2.5.19)
     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
@@ -201,50 +199,15 @@ function Zeeman(state::HundsCaseB, state′::HundsCaseB, p::Int64)
         return 0.0
     else
         return (
-                  (-1)^p * (-1)^(F′ - M′) * wigner3j(F′, 1, F, -M′, -p, M)
-                * (-1)^(J′ + I + F + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J′, F′, I, F, J, 1)
+                  (-1)^(J′ + I + F + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J′, F′, I, F, J, 1)
                 * (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) * S * (S + 1) * (2S + 1) ) * wigner6j(S, J′, N, J, S, 1)
-        )
+            ) * 
+            sum(
+                B[p+2] * (-1)^p * (-1)^(F′ - M′) * wigner3j(F′, 1, F, -M′, -p, M) for p ∈ -1:1
+            )
     end
 end
 export Zeeman
-
-# function Zeeman(state::HundsCaseB, state′::HundsCaseB, B::Vector{Float64})
-#     # Hirota, equation (2.5.16) and (2.5.19)
-#     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
-#     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
-#     if ~δ(Λ, Λ′) || ~δ(N, N′)
-#         return 0.0
-#     else
-#         return (
-#                   (-1)^(J′ + I + F + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J′, F′, I, F, J, 1)
-#                 * (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) * S * (S + 1) * (2S + 1) ) * wigner6j(S, J′, N, J, S, 1)
-#             ) * 
-#             sum(
-#                 B[p+2] * (-1)^p * (-1)^(F′ - M′) * wigner3j(F′, 1, F, -M′, -p, M) for p ∈ -1:1
-#             )
-#     end
-# end
-# export Zeeman
-
-function Σ(state::HundsCaseB)
-    @unpack Λ, N, S, J = state
-    val = zero(Float64)
-    for Σ ∈ -S:S
-        Ω = Λ + Σ
-        val += Σ * (2N + 1) * wigner3j(J, S, N, Ω, -Σ, -Λ)^2
-    end
-    return val
-end
-# function Σ(state::State)
-#     val = zero(Float64)
-#     for i ∈ eachindex(state.basis), j ∈ eachindex(state.basis)
-#         val += conj(state.coeffs[i]) * Σ(state.basis[j]) * state.coeffs[j]
-#     end
-#     return val
-# end
-Σ(state::State) = sum(Σ(state.basis[i]) * state.coeffs[i] * conj(state.coeffs[i]) for i ∈ eachindex(state.basis))
-export Σ
 
 function TDM_magnetic(state::HundsCaseB, state′::HundsCaseB, p::Int64)
     # Assumes magnetic moment aligned along z-axis of molecule-fixed axis
@@ -270,7 +233,8 @@ function TDM(state::HundsCaseB, state′::HundsCaseB, p::Int64)
           (-1)^p * (-1)^(F - M) * wigner3j(F, 1, F′, -M, p, M′)
         * (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J, F, I, F′, J′, 1)
         * (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) ) * wigner6j(N, J, S, J′, N′, 1)
-        * (-1)^(N - Λ) * sqrt( (2N + 1) * (2N′ + 1) ) * sum(wigner3j(N, 1, N′, -Λ, q, Λ′) for q ∈ -1:1)
+        * (-1)^(N - Λ) * sqrt( (2N + 1) * (2N′ + 1) ) * wigner3j(N, 1, N′, -Λ, 0, Λ′)
+        # * (-1)^(N - Λ) * sqrt( (2N + 1) * (2N′ + 1) ) * sum(wigner3j(N, 1, N′, -Λ, q, Λ′) for q ∈ -1:1)
     )
 end
 TDM(state, state′) = sum(TDM(state, state′, p) for p ∈ -1:1)
@@ -294,7 +258,7 @@ function 𝒫(K,P,ϵ)
         end
     elseif P == -1
         if K == 1
-            val += (ϵ0 * conj(ϵp1) + conj(ϵ0) * ϵm1)
+            val += + (ϵ0 * conj(ϵp1) + conj(ϵ0) * ϵm1)
         elseif K == 2
             val += sqrt(3/2) * (-ϵ0 * conj(ϵp1) + conj(ϵ0) * ϵm1)
         end
@@ -345,7 +309,7 @@ function polarizability(state::HundsCaseB, state′::HundsCaseB, α, ϵ)
                 * (-1)^(N - Λ) * sqrt( (2N + 1) * (2N′ + 1) )
                 * wigner3j(N, K, N′, -Λ, 0, Λ′)
                 * α[K+1] * 𝒫(K, -P, ϵ)
-                # * δ(Λ, Λ′)
+                * δ(Λ, Λ′)
             ) 
         end
     end
