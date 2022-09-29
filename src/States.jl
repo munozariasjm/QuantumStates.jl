@@ -49,13 +49,10 @@ export expectation
 energy(s::State) = s.E
 export energy
 
-function states_from_basis(
-        basis::Vector{<:BasisState}
-        )
-    """
-    Returns a vector of states based on a basis, energies (`es') and a matrix of coefficients (`coeffs').
-    """
-    
+"""
+Returns a vector of states based on a basis, energies (`es') and a matrix of coefficients (`coeffs').
+"""
+function states_from_basis(basis::Vector{<:BasisState})
     states = [State(0.0, basis, zeros(ComplexF64, length(basis)), i) for i in 1:length(basis)]
     for i in eachindex(basis)
         states[i].coeffs[i] = 1.0
@@ -64,6 +61,19 @@ function states_from_basis(
     return states
 end
 export states_from_basis
+
+function states_to_basis(states::Vector{State{T}}) where T
+    basis = states[1].basis
+    basis_states_include = zeros(Bool, length(basis))
+    for i ∈ eachindex(states)
+        state = states[i]
+        normed_state_coeffs = norm.(state.coeffs)
+        nonzero_idxs = findall(x -> x > 0, normed_state_coeffs)
+        basis_states_include[nonzero_idxs] .|= true
+    end
+    return findall(>(false), basis_states_include), basis[basis_states_include]
+end
+export states_to_basis
 
 import LinearAlgebra: dot
 dot(state::State, state′::State) = state.coeffs ⋅ state′.coeffs
@@ -181,7 +191,6 @@ end
 # export subspace
 
 function subspace(states::Vector{State{T}}, QN_bounds, threshold=0.01) where {T}
-    
     subspace = State{T}[]
     subspace_idxs = Int64[]
     QNs = keys(QN_bounds)
@@ -206,20 +215,25 @@ function subspace(states::Vector{State{T}}, QN_bounds, threshold=0.01) where {T}
     return (subspace_idxs, subspace)
 end
 
-# function subspace(H::Hamiltonian, QN_bounds)
-#     """
-#     Choose a subspace of a Hamiltonian by selecting a subset of the eigenstates.
-#     """
-#     H_subspace = deepcopy(H)
-#     subspace_idxs, _ = subspace(H.states, QN_bounds)
-
-#     H_subspace.states = H
-#     H_subspace.matrix = H_subspace.matrix[subspace_idxs, subspace_idxs]
-#     for i ∈ eachindex(H.operators)
-#         H.operators[i].matrix = H.operators[i].matrix[subspace_idxs, subspace_idxs]
-#     end
-
-# export subspace
+function subspace(basis::Vector{<:BasisState}, QN_bounds)
+    subspace_basis = typeof(basis[1])[]
+    QNs = keys(QN_bounds)
+    add_to_subspace = ones(Bool, length(basis))
+    for QN ∈ QNs
+        for (i, b_state) ∈ enumerate(basis)
+            if getfield(b_state, QN) ∉ QN_bounds[QN]
+                add_to_subspace[i] = false
+            end
+        end
+    end
+    for i ∈ eachindex(basis)
+        if add_to_subspace[i]
+            push!(subspace_basis, basis[i])
+        end
+    end
+    return subspace_basis
+end
+export subspace
 
 function extend_operator(operator::T, state::State, state′::State, args...) where {T}
     val = zero(ComplexF64)
@@ -263,9 +277,6 @@ function convert_basis(states::Vector{State{T}}, basis′) where {T}
     for (i, state) in enumerate(basis′)
         for (j, state′) in enumerate(basis)
             P[i,j] = overlap(state, state′)
-            # if P[i,j] > 0.0
-            #     println(P[i,j])
-            # end
         end
     end
 
@@ -281,6 +292,23 @@ function convert_basis(states::Vector{State{T}}, basis′) where {T}
     return new_states
 end
 export convert_basis
+
+# function convert_basis(H::Hamiltonian, basis′)
+
+#     P = deepcopy(H.matrix)
+#     P .= 0.0
+
+#     basis = H.basis
+#     for (i, state) in enumerate(basis)
+#         for (j, state′) in enumerate(basis′)
+#             P[i,j] = overlap(state, state′)
+#         end
+#     end
+#     H.M .= P' * H.M * P
+#     H.basis = basis′
+
+#     return Hamiltonian()
+# end
 
 # function minimize_basis(states::Vector{State})
 #     basis_idxs = zeros(Bool, length(states[1].basis))
@@ -370,13 +398,28 @@ export Operator
     basis::Vector{T}
     operator::Expr
     parameters::ParameterList
-    states::Vector{State{T}}         = states_from_basis(basis)
-    operators::F                     = unpack_operator(operator, basis)
-    matrix::Matrix{ComplexF64}       = sum(parameters.param_dict[operator.param] .* operator.matrix for operator ∈ operators)
-    tdms::Array{ComplexF64, 3}       = zeros(ComplexF64, length(states), length(states), 3)
-    basis_tdms::Array{ComplexF64, 3} = zeros(ComplexF64, length(basis), length(basis), 3)
+    states::Vector{State{T}}           = states_from_basis(basis)
+    operators::F                       = unpack_operator(operator, basis)
+    matrix::Matrix{ComplexF64}         = sum(parameters.param_dict[operator.param] .* operator.matrix for operator ∈ operators)
+    tdms::Array{ComplexF64, 3}         = zeros(ComplexF64, length(states), length(states), 3)
+    tdms_m::Array{ComplexF64, 3}       = zeros(ComplexF64, length(states), length(states), 3)
+    basis_tdms::Array{ComplexF64, 3}   = zeros(ComplexF64, length(basis), length(basis), 3)
+    basis_tdms_m::Array{ComplexF64, 3} = zeros(ComplexF64, length(basis), length(basis), 3)
 end
 export Hamiltonian
+
+# """
+#     Assumes that `H₁` and `H₂` have the same operator and set of parameters. 
+# """
+# function combine(H₁::Hamiltonian, H₂::Hamiltonian)
+#     combined_basis = [H₁.basis; H₂.basis]
+#     combined_states = [H₁.states; H₂.states]
+#     Hamiltonian(basis=combined_basis, operator=H₁.operator, parameters=H₁.parameters)
+# end
+
+subspace(H::Hamiltonian, QN_bounds) = Hamiltonian(basis=subspace(H.basis, QN_bounds), operator=H.operator, parameters=H.parameters)
+export subspace
+# subspace(H::Hamiltonian, basis_idxs) = Hamiltonian(H.basis[basis_idxs], H.operator, H.parameters)
 
 function update_basis_tdms!(H::Hamiltonian)
     for (i, bstate) ∈ enumerate(H.basis)
@@ -388,7 +431,18 @@ function update_basis_tdms!(H::Hamiltonian)
     end
     return nothing
 end
-export update_basis_tdms!
+
+function update_basis_tdms_m!(H::Hamiltonian)
+    for (i, bstate) ∈ enumerate(H.basis)
+        for (j, bstate′) ∈ enumerate(H.basis)
+            for p ∈ -1:1
+                H.basis_tdms_m[i,j,p+2] = TDM_magnetic(bstate, bstate′, p)
+            end
+        end
+    end
+    return nothing
+end
+export update_basis_tdms_m!
 
 function update_tdms!(H::Hamiltonian, idxs=eachindex(H.states))
     for i ∈ idxs, j ∈ idxs
@@ -408,13 +462,82 @@ function update_tdms!(H::Hamiltonian, idxs=eachindex(H.states))
 end
 export update_tdms!
 
+function update_tdms_m!(H::Hamiltonian, idxs=eachindex(H.states))
+    for i ∈ idxs, j ∈ idxs
+        if j >= i
+            state = H.states[i]
+            state′ = H.states[j]
+            for p ∈ -1:1
+                H.tdms[i,j,p+2] = H.tdms[j,i,p+2] = 0.0
+                for m ∈ eachindex(H.basis), n ∈ eachindex(H.basis)
+                    H.tdms[i,j,p+2] += conj(state.coeffs[m]) * state′.coeffs[n] * H.basis_tdms_m[m,n,p+2]
+                end
+                H.tdms[j,i,p+2] += conj(H.tdms[i,j,p+2])
+            end
+        end
+    end
+    return nothing
+end
+export update_tdms_m
+
+function get_basis_tdms(basis::Vector{<:BasisState}, tdm_func::F) where F
+    basis_tdms = zeros(ComplexF64, length(basis), length(basis), 3)
+    for (i, bstate) ∈ enumerate(basis)
+        for (j, bstate′) ∈ enumerate(basis)
+            for p ∈ -1:1
+                if i < j
+                    basis_tdms[i,j,p+2] = tdm_func(bstate, bstate′, p)
+                    basis_tdms[j,i,p+2] = conj(basis_tdms[i,j,p+2])
+                elseif i == j
+                    basis_tdms[i,j,p+2] = tdm_func(bstate, bstate′, p)
+                end
+            end
+        end
+    end
+    return basis_tdms
+end
+export get_basis_tdms
+
+function get_tdms_two_bases(basis::Vector{<:BasisState}, basis′::Vector{<:BasisState}, tdm_func::F) where F
+    basis_tdms = zeros(ComplexF64, length(basis), length(basis′), 3)
+    for (i, bstate) ∈ enumerate(basis)
+        for (j, bstate′) ∈ enumerate(basis′)
+            for p ∈ -1:1
+                basis_tdms[i,j,p+2] = tdm_func(bstate, bstate′, p)
+            end
+        end
+    end
+    return basis_tdms
+end
+export get_tdms_two_bases
+
+"""
+    `states` and `states′` must share the same basis.
+"""
+function tdms_between_states!(d::Array{ComplexF64, 3}, basis_tdms::Array{ComplexF64, 3}, states::Vector{<:State}, states′::Vector{<:State})
+    for i ∈ eachindex(states), j ∈ eachindex(states′)
+        state  = states[i]
+        state′ = states′[j]
+        basis  = state.basis
+        basis′ = state′.basis
+        for p ∈ -1:1
+            d[i,j,p+2] = 0.0
+            for m ∈ eachindex(basis), n ∈ eachindex(basis′)
+                d[i,j,p+2] += conj(state.coeffs[m]) * state′.coeffs[n] * basis_tdms[m,n,p+2]
+            end
+        end
+    end
+    return nothing
+end
+export tdms_between_states!
+
 function add_to_H(H::Hamiltonian, param::Symbol, f::Function)
     operator = Expr(:call, :+, H.operator, f)
     matrix = matrix_from_operator(H.basis, f)
     param_dict = Dict(H.parameters.param_dict..., param => 0.0) # any new term added has its parameter value set to zero as default
     parameters = ParameterList(param_dict)
     operators = (; H.operators..., param => Operator(param, f, matrix))
-    return Hamiltonian(H.basis, operator, parameters, H.states, operators, H.matrix, H.tdms, H.basis_tdms)
+    return Hamiltonian(H.basis, operator, parameters, H.states, operators, H.matrix, H.tdms, H.tdms_m, H.basis_tdms, H.basis_tdms_m)
 end
 export add_to_H
 
@@ -792,47 +915,6 @@ export enumerate_states
 # end
 # export enumerate_states
 
-# function convert_basis(H::Hamiltonian, basis′, overlap)
-
-#     P = deepcopy(H.M)
-#     P .= 0.0
-
-#     basis = H.basis
-#     for (i, state) in enumerate(basis)
-#         for (j, state′) in enumerate(basis′)
-#             P[i,j] = overlap(state, state′)
-#         end
-#     end
-#     H.M .= P' * H.M * P
-#     H.basis = basis′
-
-#     return P
-# end
-
-function subspace(basis::Vector{<:BasisState}, QN_bounds)
-    subspace_basis = BasisState[]
-    subspace_idxs = Int64[]
-    QNs = keys(QN_bounds)
-    
-    for (i, state) in enumerate(basis)
-        add_state = true
-        for (j, bounds) in enumerate(QN_bounds)
-            QN = QNs[j]
-            state_val = getfield(state, QN)
-            if !(bounds[1] <= state_val <= bounds[2])
-                add_state = false
-                break
-            end
-        end
-        if add_state
-            push!(subspace_idxs, i)
-            push!(subspace_basis, state)
-        end
-    end
-    return (subspace_idxs, subspace_basis)
-end
-export subspace
-
 import Base.==
 function ==(state::State, state′::State)
     state_type = typeof(state)
@@ -869,7 +951,7 @@ mutable struct Transition
     ground_state::State
     excited_state::State
     frequency::Float64
-    tdm::Float64
+    tdm::ComplexF64
 end
 export Transition
 
