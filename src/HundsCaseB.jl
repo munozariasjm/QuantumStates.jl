@@ -123,9 +123,9 @@ export Hyperfine_IS
 function Hyperfine_Dipolar(state::HundsCaseB, state′::HundsCaseB)
     # Dipolar interaction term, from c(Iz ⋅ Sz)
     # Hirota, pg. 39
-    S,  I,  Λ,  N,  J,  F,  M = unpack(state)
+    S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
-    if ~δ(Λ, Λ′) || ~δ(F, F′) || ~δ(M, M′)
+    if ~δ(F, F′) || ~δ(M, M′)
         return 0.0
     else
         return (
@@ -140,9 +140,9 @@ end
 export Hyperfine_Dipolar
 
 function ℓDoubling(state::HundsCaseB, state′::HundsCaseB)
-    S,  I,  Λ,  N,  J,  F,  M = unpack(state)
+    S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
-    if ~δ(J, J′) || ~δ(F, F′) || ~δ(M, M′) || ~δ(abs(Λ′ - Λ), 2)
+    if ~δ(N, N′) || ~δ(J, J′) || ~δ(F, F′) || ~δ(M, M′) || ~δ(abs(Λ′ - Λ), 2)
         return 0.0
     else
         return (
@@ -151,7 +151,7 @@ function ℓDoubling(state::HundsCaseB, state′::HundsCaseB)
                 sqrt( (2N - 1) * (2N) * (2N + 1) * (2N + 2) * (2N + 3) ) *
                 sum(
                     wigner3j(N, 2, N′, -Λ, 2q, Λ′)
-                    for q in (-1,1)
+                    for q ∈ (-1,1)
                 )                   
             )
     end

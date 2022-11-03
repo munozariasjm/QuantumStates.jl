@@ -6,21 +6,14 @@ using CompositeStructs
 using DataFrames
 using PartialWaveFunctions
 
-const c = 299792458
-const gS = 2.0023193043617
-const μB = 1.39962
-const h = 6.62607015e-34
-const ħ = h / 2π
-const ε0 = 8.8541878128e-12
-const μX = 1e-6 * 1.465 * (1e-21 / c) / h; # for CaOH, in MHz
-export c, gS, μB, h, ħ, ε0, μX
-
 using HalfIntegers
 using Parameters
 using NamedTupleTools
 using LinearAlgebra
 using LoopVectorization
 using NamedTupleTools
+
+import ProgressMeter: Progress, next!
 
 abstract type BasisState end
 export BasisState
@@ -133,7 +126,7 @@ function wigner6j_(j1, j2, j3, m1, m2, m3)
 end
 export wigner6j_
 
-function wigner9j(j1, j2, j3, j4, j5, j6, j7, j8, j9)
+function wigner9j(j1, j2, j3, j4, j5, j6, j7, j8, j9)::Float64
     val = 0.0
     kmin = maximum_splat(abs(j1 - j9), abs(j4 - j8), abs(j2 - j6))
     kmax = maximum_splat(abs(j1 + j9), abs(j4 + j8), abs(j2 + j6))
@@ -431,6 +424,7 @@ function update_basis_tdms!(H::Hamiltonian)
     end
     return nothing
 end
+export update_basis_tdms!
 
 function update_basis_tdms_m!(H::Hamiltonian)
     for (i, bstate) ∈ enumerate(H.basis)
@@ -576,7 +570,7 @@ import Base: getproperty
 function getproperty(p::ParameterList, s::Symbol)
     param_dict = getfield(p, :param_dict)
     if s ∈ keys(param_dict)
-        return getindex(param_dict, s)
+        return getindex(param_dict, s)::Float64
     else
         return getfield(p, s)
     end
@@ -613,35 +607,60 @@ function matrix_from_operator(basis, operator::F) where {F}
     return m
 end
 
+# function evaluate_operator!(basis, o::Operator{F}) where F
+#     for i ∈ eachindex(basis), j ∈ i:length(basis)
+#         o.matrix[i,j] = o.operator(basis[i], basis[j])
+#         o.matrix[j,i] = conj(o.matrix[i,j])
+#     end
+#     return nothing
+# end
 function evaluate_operator!(basis, o::Operator{F}) where F
     for i ∈ eachindex(basis), j ∈ eachindex(basis)
-        o.matrix[i,j] = o.operator(basis[i], basis[j])
+        o.matrix[i,j] = round( o.operator(basis[i], basis[j]), digits=12 )
     end
     return nothing
 end
-export evaluate_operator!
+# export evaluate_operator!
 
 @generated function evaluate_(H::Hamiltonian, _::Val{N}) where N
     quote
         Base.Cartesian.@nexprs $N i -> evaluate_operator!(H.basis, H.operators[i])
     end
 end
-export evaluate
+export evaluate_
+
+function add_operator_matrix!(H::Hamiltonian, operator::Operator)
+    operator_val = getproperty(H.parameters, operator.param)
+    for i ∈ eachindex(H.matrix)
+        H.matrix[i] += operator_val * operator.matrix[i]
+    end
+    return nothing
+end
+export add_operator_matrix!
+
+@generated function sum_operator_matrices!(H::Hamiltonian, _::Val{N}) where N
+    quote
+        Base.Cartesian.@nexprs $N i -> add_operator_matrix!(H, H.operators[i])
+    end
+end
 
 function full_evaluate!(H::Hamiltonian)
     evaluate_(H, Val(length(H.operators)))
-    H.matrix = sum(H.parameters.param_dict[operator.param] .* operator.matrix for operator ∈ H.operators)
+    H.matrix = sum(getproperty(H.parameters, operator.param) .* operator.matrix for operator ∈ H.operators)
+    return nothing
 end
 export full_evaluate!
 
 function evaluate!(H::Hamiltonian)
-    H.matrix = sum(H.parameters.param_dict[operator.param] .* operator.matrix for operator ∈ H.operators)
+    H.matrix .= 0.0
+    sum_operator_matrices!(H, Val(length(H.operators)))
+    return nothing
 end
 export evaluate!
         
 function solve!(H::Hamiltonian)
     es, vs = eigen(H.matrix)
-    for i in eachindex(H.states)
+    for i ∈ eachindex(H.states)
         H.states[i].E = real(es[i])
         H.states[i].coeffs = vs[:,i]
     end
@@ -1056,30 +1075,64 @@ end
 #     return H_dict[(params[scan_param] for scan_param ∈ parameter_scan.scan_params)...]
 # end
 
-function calculate_state_overlaps(states, states′)
-    overlaps = zeros(Float64, length(states), length(states))
+function calculate_state_overlaps!(states, states′, overlaps)
     for i ∈ eachindex(states)
-        for j ∈ eachindex(states)
+        for j ∈ eachindex(states′)
             state = states[i]
             state′ = states′[j]
             overlaps[i,j] = norm(state ⋅ state′)
         end
     end
+    return nothing
+end  
+
+function calculate_state_overlaps(states, states′)
+    overlaps = zeros(Float64, length(states), length(states))
+    calculate_state_overlaps!(states, states′, overlaps)
     return overlaps
 end
 export calculate_state_overlaps
 
-function tracked_idxs(overlaps)
-    max_vals, idxs = findmax(overlaps, dims=1)
-    return argmax.(eachcol(overlaps))
+function tracked_idxs!(overlaps, states, prev_states, tracked_idxs)
+    for i ∈ axes(overlaps, 2)
+        overlaps_row = @view overlaps[:,i] # overlap for previous state `i` with all states of current iteration 
+        max_idx = argmax(overlaps_row)
+        tracked_idxs[i] = max_idx
+        overlaps[max_idx,:] .= 0.0
+        # found_idx = false
+        # j = 1
+        # while !found_idx && j <= size(overlaps,1)
+        #     max_idx = argmax(overlaps_row)
+        #     # println(abs(energy(prev_states[i]) - energy(states[tracked_idxs[i]])), " ", abs(energy(prev_states[i]) - energy(states[max_idx])))
+        #     # println(energy(prev_states[i]) - energy(states[tracked_idxs[i]]))
+        #     # println(energy(prev_states[i]), " ", energy(prev_states[i]) - energy(states[max_idx]), " ", j)
+        #     # println(" ")
+        #     # Don't allow the tracked index to change if the change is energy is too large
+        #     # (This is meant to avoid discrete jumps between states far from each other that may look similar close to an avoided crossing.)
+        #     if abs(energy(prev_states[i]) - energy(states[max_idx])) < (10 * abs(energy(prev_states[i]) - energy(states[i])))
+        #         tracked_idxs[i] = max_idx
+        #         overlaps[max_idx,:] .= 0.0
+        #         found_idx = true
+        #     else
+        #         overlaps[max_idx,i] = 0.0
+        #     end
+        #     j += 1
+        # end
+        # println(abs(energy(prev_states[i]) - energy(states[i])), " ", abs(energy(prev_states[i]) - energy(states[tracked_idxs[i]])))
+        # if !found_idx
+            # println(found_idx, i)
+        # end
+    end
+    return nothing
 end
-export tracked_idxs
+export tracked_idxs!
 
 function scan_single_parameter(H::Hamiltonian, param::Symbol, scan_range)
     
     d = Dict{Float64, Vector{State{typeof(H.basis[1])}}}()
     parameter_scan = ParameterScan1(d)
-    
+    overlaps = zeros(Float64, length(H.states), length(H.states))
+
     prev_states = deepcopy(H.states)
     for (i, scan_value) ∈ enumerate(scan_range)
         
@@ -1089,13 +1142,12 @@ function scan_single_parameter(H::Hamiltonian, param::Symbol, scan_range)
         
         # Ensure that state indices are correctly tracked, i.e., crossing states are not swapped
         if i != 1
-            overlaps = calculate_state_overlaps(H.states, prev_states)
+            calculate_state_overlaps!(H.states, prev_states, overlaps)
             new_idxs = tracked_idxs(overlaps)
-            # new_idxs = 1:length(H.states)
-
             H.states = H.states[new_idxs]
+
             for j in eachindex(H.states)
-                H.states[j].idx = j
+                # H.states[j].idx = j
                 prev_states[j].coeffs = H.states[j].coeffs
             end
         end
@@ -1106,79 +1158,102 @@ function scan_single_parameter(H::Hamiltonian, param::Symbol, scan_range)
 end
 export scan_parameters
 
-function scan_single_parameter(H::Hamiltonian, param::Symbol, scan_range, f::F) where {F}
-    
-    saved_values = zeros(length(scan_range), length(H.states))
-    
-    prev_states = deepcopy(H.states)
-    for (i, scan_value) ∈ enumerate(scan_range)
+"""
+    scan_parameters()
 
-        H.parameters.param_dict[param] = scan_value
-        evaluate!(H)
-        solve!(H)
-        
-        # Ensure that state indices are correctly tracked, i.e., crossing states are not swapped
-        if i != 1
-            overlaps = calculate_state_overlaps(H.states, prev_states)
-            new_idxs = tracked_idxs(overlaps)
-            # new_idxs = 1:length(H.states) #tracked_idxs(overlaps)
-            # println(new_idxs)
-            H.states = H.states[new_idxs]
-            for j in eachindex(H.states)
-                H.states[j].idx = j
-                prev_states[j].coeffs = H.states[j].coeffs
+    scan_iterator = 
+"""
+function scan_parameters(H::Hamiltonian, scan_values::T, iterator::F1, H_func!::F2, output_func::F3; n_threads=Threads.nthreads()) where {T,F1,F2,F3}
+    scan_iterator = iterator(scan_values...)
+    
+    n_values = length(scan_iterator)
+    # saved_values = zeros(n_values, length(H.states))
+
+    output_type = typeof(output_func(H))
+
+    n_params = length(first(scan_iterator))
+    # print(n_params)
+
+    prog_bar = Progress(n_values)
+
+    # Multi-threading settings
+    batch_size = cld(n_values, n_threads)
+    remainder = n_values - batch_size * n_threads
+    partitions = Iterators.partition(scan_iterator, batch_size)
+    # println(length.(partitions))
+
+    # full_dict = Dict{NTuple{n_params, Float64}, output_type}()
+
+    # print(length(partitions))
+    tasks = Vector{Task}(undef, n_threads)
+
+    H_copy = deepcopy(H)
+    H_func!(H_copy, scan_values[1])
+
+    @sync for (i, scan_values) ∈ enumerate(partitions)
+
+        _H = deepcopy(H_copy)
+        tracked_idxs = collect(1:length(_H.states))
+        overlaps = zeros(Float64, length(_H.states), length(_H.states))
+        prev_states = deepcopy(_H.states)
+        dict = Dict{NTuple{n_params, Float64}, output_type}()
+        dict_state_idxs = Dict{NTuple{n_params, Float64}, Vector{Int64}}()
+        state_idxs = collect(1:length(_H.states))
+
+        @async tasks[i] = Threads.@spawn begin
+        # _batch_size = i <= remainder ? (batch_size + 1) : batch_size - 1
+        # batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
+        # for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
+            for scan_value ∈ scan_values
+                H_func!(_H, scan_value)
+                # if j != 1
+                calculate_state_overlaps!(_H.states, prev_states, overlaps)
+                tracked_idxs!(overlaps, _H.states, prev_states, tracked_idxs)
+                _H.states .= _H.states[tracked_idxs]
+    
+                for j ∈ eachindex(_H.states)
+                    prev_states[j].E = _H.states[j].E
+                    prev_states[j].coeffs .= _H.states[j].coeffs
+                end
+                # end
+                # saved_values[i,:] = output_func(H)
+                dict[scan_value] = output_func(_H)
+                # state_idxs .= state_idxs[tracked_idxs]
+                dict_state_idxs[scan_value] = deepcopy(state_idxs[tracked_idxs])
+                next!(prog_bar)
             end
-
+            dict, dict_state_idxs
         end
-        saved_values[i,:] = f(deepcopy(H))
-        
+        # full_dict = merge(full_dict, fetch(task))
     end
-    return saved_values
-end
-export scan_single_parameter
+    scan_data = fetch.(tasks)
+    # print(typeof(scan_data[1][1]))
+    full_dict = merge(scan_data[1][1])
+    full_dict_tracked_idxs =  merge(scan_data[1][2])
 
-function scan_single_parameter_gfactor(H::Hamiltonian, param::Symbol, scan_range) where {T}
+    # for (i, scan_values) ∈ enumerate(scan_iterator)
+        
+    #     _H = deepcopy(H)
+    #     H_func!(H, scan_values, i)
+        
+    #     # Ensure that state indices are correctly tracked, i.e., crossing states are not swapped
+    #     if i != 1
+    #         calculate_state_overlaps!(H.states, prev_states, overlaps)
+    #         tracked_idxs!(overlaps, tracked_idxs)
+    #         H.states = H.states[tracked_idxs]
+
+    #         for j ∈ eachindex(H.states)
+    #             prev_states[j].coeffs .= H.states[j].coeffs
+    #         end
+    #     end
+    #     # saved_values[i,:] = output_func(H)
+    #     dict[scan_values] = output_func(H)
+    #     next!(prog_bar)
+    # end
+    return sort(full_dict), sort(full_dict_tracked_idxs)
     
-    g_factors = zeros(length(scan_range), length(H.states))
-    
-    prev_states = deepcopy(H.states)
-    for (i, scan_value) ∈ enumerate(scan_range)
-        
-        H.parameters.param_dict[param] = scan_value
-        evaluate!(H)
-        solve!(H)
-        
-        # Ensure that state indices are correctly tracked, i.e., crossing states are not swapped
-        if i != 1
-            overlaps = calculate_state_overlaps(H.states, prev_states)
-            new_idxs = tracked_idxs(overlaps)
-            # new_idxs = 1:length(H.states) #tracked_idxs(overlaps)
-            # println(new_idxs)
-            H.states = H.states[new_idxs]
-            for j in eachindex(H.states)
-                H.states[j].idx = j
-                prev_states[j].coeffs = H.states[j].coeffs
-            end
-            
-            H.parameters.B_z = 0.001 + (-0.00001)
-            evaluate!(H)
-            solve!(H)
-            states_m = deepcopy(H.states[new_idxs])
-            # m_energies = energy.(H.states)
-
-            H.parameters.B_z = 0.001 + (+0.00001)
-            evaluate!(H)
-            solve!(H)
-            states_p = deepcopy(H.states[new_idxs])
-            # p_energies = energy.(H.states)
-
-            g_factors[i,:] = (energy.(states_p) - energy.(states_m)) / (0.20)
-        end
-        
-    end
-    return g_factors
 end
-export scan_single_parameter_gfactor
+export scan_parameters
 
 # function scan_parameters(H::Hamiltonian, scan_ranges) where {T}
     
