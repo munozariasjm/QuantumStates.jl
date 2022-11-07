@@ -22,7 +22,7 @@ function TDM(state::AngularMomentumState, state′::AngularMomentumState, p::Int
     F,  M  = unpack(state)
     F′, M′ = unpack(state′)
     return (
-        (-1)^p * (-1)^(F - M) * sqrt(2F + 1) * wigner3j(F, 1, F′, M, p, -M′)
+        (-1)^p * (-1)^(F - M) * wigner3j_(F, 1, F′, M, p, -M′) * sqrt(2F + 1)
     )
 end
 

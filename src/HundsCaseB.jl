@@ -111,7 +111,7 @@ function Hyperfine_IS(state::HundsCaseB, state′::HundsCaseB)
         return 0.0
     else
         return (
-                (-1)^(N + S + J) * (-1)^(J′ + I + F′ + 1)
+                (-1)^(N′ + S + J) * (-1)^(J′ + I + F′ + 1)
                 * sqrt( (2J′ + 1) * (2J + 1) * S * (S + 1) * (2S + 1) * I * (I + 1) * (2I + 1) )
                 * wigner6j(I, J, F′, J′, I, 1)
                 * wigner6j(S, J, N′, J′, S, 1)
