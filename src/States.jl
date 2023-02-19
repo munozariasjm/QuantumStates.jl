@@ -616,7 +616,7 @@ end
 # end
 function evaluate_operator!(basis, o::Operator{F}) where F
     for i ∈ eachindex(basis), j ∈ eachindex(basis)
-        o.matrix[i,j] = round( o.operator(basis[i], basis[j]), digits=12 )
+        o.matrix[i,j] = round( o.operator(basis[i], basis[j]), digits=20 )
     end
     return nothing
 end
@@ -1156,7 +1156,8 @@ function scan_single_parameter(H::Hamiltonian, param::Symbol, scan_range)
     end
     return parameter_scan
 end
-export scan_parameters
+# export scan_single_parameter
+# export scan_parameters
 
 """
     scan_parameters()

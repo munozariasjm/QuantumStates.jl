@@ -36,3 +36,7 @@ function TDM_magnetic(state::AngularMomentumState, state′::AngularMomentumStat
 end
 # TDM_magnetic(state::State, state′::State, p::Int64) = extend_operator(TDM_magnetic, state, state′, p)
 
+function H(state::AngularMomentumState, state′::AngularMomentumState)
+    δ(state, state′) * state.E
+end
+export H
