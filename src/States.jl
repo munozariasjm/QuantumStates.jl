@@ -30,6 +30,9 @@ mutable struct State{T<:BasisState}
 end
 export State
 
+⊗(f1::T1, f2::T2) where {T1,T2} = (bs, bs′) -> f1(bs.basis_state1, bs′.basis_state1) * f2(bs.basis_state2, bs′.basis_state2)
+export ⊗
+
 function expectation(state::State, s::Symbol)
     exp = zero(ComplexF64)
     for i ∈ eachindex(state.basis)
@@ -43,14 +46,13 @@ energy(s::State) = s.E
 export energy
 
 """
-Returns a vector of states based on a basis, energies (`es') and a matrix of coefficients (`coeffs').
+Returns a vector of states based on a basis.
 """
 function states_from_basis(basis::Vector{<:BasisState})
     states = [State(0.0, basis, zeros(ComplexF64, length(basis)), i) for i in 1:length(basis)]
     for i in eachindex(basis)
         states[i].coeffs[i] = 1.0
     end
-
     return states
 end
 export states_from_basis
@@ -74,17 +76,6 @@ export ⋅
 
 norm(state::State) = norm(state.coeffs)
 export norm
-
-function maximum_splat(xs...)
-    max = -Inf
-    for x in xs
-        if x > max
-            max = x
-        end
-    end
-    return max
-end
-export maximum_splat
 
 function wigner3j_fromcg(j1, m1, j2, m2, j3, m3)
     return (-1)^(j1-j2-m3) * CG(j1, m1, j2, m2, j3, -m3) / sqrt(2j3 + 1)
@@ -128,8 +119,8 @@ export wigner6j_
 
 function wigner9j(j1, j2, j3, j4, j5, j6, j7, j8, j9)::Float64
     val = 0.0
-    kmin = maximum_splat(abs(j1 - j9), abs(j4 - j8), abs(j2 - j6))
-    kmax = maximum_splat(abs(j1 + j9), abs(j4 + j8), abs(j2 + j6))
+    kmin = max(abs(j1 - j9), abs(j4 - j8), abs(j2 - j6))
+    kmax = min(abs(j1 + j9), abs(j4 + j8), abs(j2 + j6))
     if kmax >= kmin
         val += sum(
             (-1)^(2k) * (2k + 1) * 
@@ -410,7 +401,7 @@ export Hamiltonian
 #     Hamiltonian(basis=combined_basis, operator=H₁.operator, parameters=H₁.parameters)
 # end
 
-subspace(H::Hamiltonian, QN_bounds) = Hamiltonian(basis=subspace(H.basis, QN_bounds), operator=H.operator, parameters=H.parameters)
+subspace(H::Hamiltonian, QN_bounds) = Hamiltonian(basis=H.basis, operator=H.operator, parameters=H.parameters, states=subspace(H.states, QN_bounds)[2])
 export subspace
 # subspace(H::Hamiltonian, basis_idxs) = Hamiltonian(H.basis[basis_idxs], H.operator, H.parameters)
 
@@ -582,6 +573,31 @@ function setproperty!(p::ParameterList, s::Symbol, v::Float64)
     setindex!(getfield(p, :param_dict), v, s)
 end
 export setproperty!
+
+macro make_operator(basis, operator_expr)
+    return quote
+        operators = NamedTuple()
+        basis = $(esc(basis))
+        # println($(length(operator_expr.args)))
+        # println($(operator_expr.args[3]))
+        for expr ∈ $(operator_expr.args)
+            if expr isa Expr
+                param = expr.args[2]
+                println(param)
+                operator = $(esc(operator_expr.args[2].args[3]))
+                matrix = matrix_from_operator(basis, operator)
+                Operator(param, operator, matrix)
+                if param isa Symbol
+                    println(operators)
+                    operators = (param => 1,)
+                    # operators = (; operators..., 1)
+                end
+            end
+        end
+        operators
+    end
+end
+export make_operator
 
 function unpack_operator(operator::Expr, basis::Vector{<:BasisState})
     operators = NamedTuple()
@@ -818,6 +834,19 @@ function findindex(QNs, QN::Symbol)
     return (exists, i)
 end
 
+# Need to redefine so that this is type-stable...
+function enumerate_states(state_type, QN_bounds1, QN_bounds2)
+    basis_states1 = enumerate_states(state_type.types[1], QN_bounds1)
+    basis_states2 = enumerate_states(state_type.types[2], QN_bounds2)
+    basis = state_type[]
+    for basis_state1 ∈ basis_states1
+        for basis_state2 ∈ basis_states2
+            push!(basis, state_type(basis_state1, basis_state2))
+        end
+    end
+    return basis
+end
+
 function enumerate_states(state_type, QN_bounds)
     states = state_type[]
     QNs = fieldnames(state_type)[1:end-1]
@@ -979,7 +1008,7 @@ function compute_transitions(H::Hamiltonian, p, threshold=1e-8)
     
     for (i, basis_state) ∈ enumerate(H.basis)
         for (j, basis_state′) ∈ enumerate(H.basis)
-            H.tdms[i,j] = TDM(basis_state, basis_state′, p)
+            H.tdms[i,j,p] = TDM(basis_state, basis_state′, p)
         end
     end
             
@@ -997,24 +1026,29 @@ function compute_transitions(H::Hamiltonian, p, threshold=1e-8)
     return transitions
 end
 
-function compute_transitions(states::Vector{<:State}, p, threshold=1e-4)
+"""
+    Compute the transitions between two sets of states, `states` and `states′`.
+"""
+function compute_transitions(states::Vector{<:State}, states′::Vector{<:State}, p; threshold=1e-8, compute_tdms=true)
     transitions = Transition[]
     basis = states[1].basis
 
     tdms = zeros(length(basis), length(basis))
-
-    for (i, basis_state) ∈ enumerate(basis)
-        for (j, basis_state′) ∈ enumerate(basis)
-            tdms[i,j] = TDM(basis_state, basis_state′, p)
+    if compute_tdms
+        for (i, basis_state) ∈ enumerate(basis)
+            for (j, basis_state′) ∈ enumerate(basis)
+                tdms[i,j] = TDM(basis_state, basis_state′, p)
+            end
         end
     end
+
     for state ∈ states
-        for state′ ∈ states
+        for state′ ∈ states′
             if state′.E > state.E
                 tdm = state.coeffs ⋅ (tdms * state′.coeffs)
                 f = state′.E - state.E
-                if norm(tdm) > threshold && abs(f) > 1
-                    transition = Transition(state, state′, state′.E - state.E, tdm)
+                if (norm(tdm) > threshold || ~compute_tdms) && abs(f) > 1
+                    transition = Transition(state, state′, f, tdm)
                     push!(transitions, transition)
                 end
             end
@@ -1227,10 +1261,12 @@ function scan_parameters(H::Hamiltonian, scan_values::T, iterator::F1, H_func!::
         end
         # full_dict = merge(full_dict, fetch(task))
     end
+
+    # Returned results are a vector of tuples holding dictionaries (with energies) and vectors of state indices
     scan_data = fetch.(tasks)
-    # print(typeof(scan_data[1][1]))
-    full_dict = merge(scan_data[1][1])
-    full_dict_tracked_idxs =  merge(scan_data[1][2])
+    # print([x[1] for x ∈ scan_data][2])
+    full_dict = merge([x[1] for x ∈ scan_data]...)
+    full_dict_tracked_idxs =  merge([x[2] for x ∈ scan_data]...)
 
     # for (i, scan_values) ∈ enumerate(scan_iterator)
         

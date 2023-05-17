@@ -79,7 +79,7 @@ function ΛDoubling_p2q(state::HundsCaseA, state′::HundsCaseA)
     """
     I,  S,  Λ,  J,  Ω,  Σ,  F,  M  = unpack(state)
     I′, S′, Λ′, J′, Ω′, Σ′, F′, M′ = unpack(state′)
-    return (-1)^(J - Ω + S - Σ) *
+    return (-1)^(J - Ω + S - Σ) * 
         sqrt( J * (J + 1) * (2J + 1) * S * (S + 1) * (2S + 1) ) *
         sum(
             δ(Λ′, Λ + 2q) *

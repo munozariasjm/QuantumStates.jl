@@ -16,11 +16,11 @@ function wigner3j(j1,j2,j3,m1,m2,m3)
     if (-j1 <= m1 <= j1) && (-j2 <= m2 <= j2) && (-j3 <= m3 <= j3) && (m1 + m2 == -m3) && (abs(j1 - j2) <= j3 <= j1 + j2)
         min_t = max(0, j2-j3-m1, j1-j3+m2)
         max_t = min(j1+j2-j3, j1-m1, j2+m2)
-
+        
         if min_t <= max_t
             threeJ_value += (
                 (-1)^(j1-j2-m3) * sqrt(Δ(j1,j2,j3)) 
-                * sqrt(factorial(j1+m1) * factorial(j1-m1) * factorial(j2+m2) * factorial(j2-m2) * factorial(j3+m3) * factorial(j3-m3)) 
+                * sqrt(factorial(j1+m1)) * sqrt(factorial(j1-m1)) * sqrt(factorial(j2+m2)) * sqrt(factorial(j2-m2)) * sqrt(factorial(j3+m3)) * sqrt(factorial(j3-m3))
                 * sum((-1)^t / x(t,j1,j2,j3,m1,m2) for t in min_t:max_t)
             )
         end

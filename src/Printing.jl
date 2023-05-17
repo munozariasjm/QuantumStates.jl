@@ -8,24 +8,34 @@ function print_nice(state::State)
 end
 export print_nice
 
-function print_basis_state(state, fields)
+function print_basis_state(basis_state::BasisState)
     str = "\\left|"
+    fields = fieldnames(typeof(basis_state))
     for (i, field) in enumerate(fields)
-        val = getfield(state, field)
-        val_str = string(val)
-#         if isinteger(val)  ### used when QNs were Rational rather than HalfInteger
-#             val_str = string(val)
-#         else
-#             val_str = "\\frac{$(val.num)}{$(val.den)}"
-#         end
-        str *= string(field) * "=" * val_str
-        if i < length(fields)
-            str *= string(", ")
+        if 2 <= i < length(fields)
+            val = getfield(basis_state, field)
+            val_str = string(val)
+    #         if isinteger(val)  ### used when QNs were Rational rather than HalfInteger
+    #             val_str = string(val)
+    #         else
+    #             val_str = "\\frac{$(val.num)}{$(val.den)}"
+    #         end
+            str *= string(field) * "=" * val_str
+            if i < length(fields)
+                str *= string(", ")
+            end
         end
     end
     str *= "\\right\\rangle"
     return str
 end
+
+function print_basis_state(tensor_state::TensorProductState)
+    str = print_basis_state(tensor_state.basis_state1)
+    str *= print_basis_state(tensor_state.basis_state2)
+    return str
+end
+export print_basis_state
 
 function contributing_basis_states(state::State, threshold=1e-3)
     basis_states = typeof(state.basis[1])[]
@@ -40,13 +50,10 @@ function contributing_basis_states(state::State, threshold=1e-3)
 end
 export contributing_basis_states
 
-function Base.show(io::IO, m::MIME"text/latex", state::State)
+function Base.show(io::IO, m::MIME"text/latex", state::State{T}) where T
     basis = state.basis
     coeffs = state.coeffs
-    basis_type = typeof(basis[1])
-    
     printed = false
-    fields = fieldnames(basis_type)[2:end-1]
     
     for (i, coeff) in enumerate(coeffs)
         str = "\$\$"
@@ -73,7 +80,7 @@ function Base.show(io::IO, m::MIME"text/latex", state::State)
                 str *= " + "
             end
             str *= state_str
-            str *= print_basis_state(basis_state, fields)
+            str *= print_basis_state(basis_state)
             str *= "\$\$"
             latex_str = latexstring(str)
             println(io, latex_str)

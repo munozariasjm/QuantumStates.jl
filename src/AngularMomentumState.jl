@@ -3,40 +3,79 @@ using InfiniteArrays
 using CompositeStructs
 using HalfIntegers
 
-Base.@kwdef struct AngularMomentumState <: BasisState
+Base.@kwdef mutable struct AngularMomentumState <: BasisState
     E::Float64 = 0.0
-    F::HalfInt
+    N::HalfInt
     M::HalfInt
     constraints = (
-        M = -F:F,
+        M = -N:N,
     )
 end
 export AngularMomentumState
 
 function unpack(state::AngularMomentumState)
-    return (state.F, state.M)
+    return (state.N, state.M)
 end
 export unpack
 
+function I(state::AngularMomentumState, state′::AngularMomentumState)
+    N,  M  = unpack(state)
+    N′, M′ = unpack(state′)
+    if ~δ(N, N′) || ~δ(M, M′)
+        return 0.0
+    else
+        return 1.0
+    end
+end
+export I
+
+function Rotation(state::AngularMomentumState, state′::AngularMomentumState)
+    N,  M  = unpack(state)
+    N′, M′ = unpack(state′)
+    if ~δ(N, N′) || ~δ(M, M′)
+        return 0.0
+    else
+        return N * (N + 1)
+    end
+end
+export Rotation
+
 function TDM(state::AngularMomentumState, state′::AngularMomentumState, p::Int64)
-    F,  M  = unpack(state)
-    F′, M′ = unpack(state′)
+    N,  M  = unpack(state)
+    N′, M′ = unpack(state′)
     return (
-        (-1)^p * (-1)^(F - M) * wigner3j_(F, 1, F′, M, p, -M′) * sqrt(2F + 1)
+        (-1)^p * (-1)^(N - M) * wigner3j_(N, 1, N′, M, p, -M′) * sqrt(2N + 1)
     )
 end
 
 function TDM_magnetic(state::AngularMomentumState, state′::AngularMomentumState, p::Int64)
     # Assumes magnetic moment aligned along z-axis of molecule-fixed axis
-    F,  M  = unpack(state)
-    F′, M′ = unpack(state′)
+    N,  M  = unpack(state)
+    N′, M′ = unpack(state′)
     return -(
-        (-1)^p * (-1)^(F - M) * sqrt(F * (F + 1) * (2F + 1)) * wigner3j(F, 1, F′, M, p, -M′)
+        (-1)^p * (-1)^(N - M) * sqrt(N * (N + 1) * (2N + 1)) * wigner3j(N, 1, N′, M, p, -M′)
     )
 end
 # TDM_magnetic(state::State, state′::State, p::Int64) = extend_operator(TDM_magnetic, state, state′, p)
 
-function H(state::AngularMomentumState, state′::AngularMomentumState)
-    δ(state, state′) * state.E
+function d₀(state::AngularMomentumState, state′::AngularMomentumState)
+    N,  M  = state.N,  state.M
+    N′, M′ = state′.N, state′.M
+    (-1)^M * sqrt((2N+1)*(2N′+1)) * wigner3j(N, 1, N′, -M, 0, M′) * wigner3j(N, 1, N′, 0, 0, 0)
 end
-export H
+
+function SplitMStates(state::AngularMomentumState, state′::AngularMomentumState)
+    N,  M  = state.N,  state.M
+    N′, M′ = state′.N, state′.M
+    if ~δ(M, M′) || ~δ(N, N′)
+        return 0.0
+    else
+        return M
+    end
+end
+export SplitMStates
+
+# function H(state::AngularMomentumState, state′::AngularMomentumState)
+#     δ(state, state′) * state.E
+# end
+# export H

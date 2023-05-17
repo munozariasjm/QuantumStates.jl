@@ -57,7 +57,7 @@ export overlap
 
 function Parity(state::State{<:HundsCaseB})
     # Note: For an actual parity state, only two basis states should have nonzero coefficients
-    basis_state_idxs = findall(c -> c^2 > 0.45, state.coeffs)
+    basis_state_idxs = findall(c -> norm(c) > 0.45, state.coeffs)
     basis_states = state.basis[basis_state_idxs]
     
     @unpack N, Λ = basis_states[1]
@@ -66,6 +66,6 @@ function Parity(state::State{<:HundsCaseB})
     @unpack N, Λ = basis_states[2]
     sign2 = sign(state.coeffs[basis_state_idxs[2]])
     
-    return (-1)^(N-abs(Λ)) * (-1)^(sign1 == sign2)
+    return -(-1)^(N-abs(Λ)) * (-1)^(sign1 == sign2)
 end
 export Parity
