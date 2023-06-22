@@ -32,11 +32,7 @@ export I
 function Rotation(state::AngularMomentumState, state′::AngularMomentumState)
     N,  M  = unpack(state)
     N′, M′ = unpack(state′)
-    if ~δ(N, N′) || ~δ(M, M′)
-        return 0.0
-    else
-        return N * (N + 1)
-    end
+    return I(state, state′) * N * (N + 1)
 end
 export Rotation
 

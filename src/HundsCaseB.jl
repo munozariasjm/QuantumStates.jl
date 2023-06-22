@@ -37,6 +37,17 @@ function unpack(state::HundsCaseB)
 end
 export unpack
 
+function I(state::HundsCaseB, state′::HundsCaseB)
+    S, I, Λ, N, J, F, M = unpack(state)
+    S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
+    if ~δ(Λ, Λ′) || ~δ(N, N′) || ~δ(J, J′) || ~δ(F, F′) || ~δ(M, M′)
+        return 0.0
+    else
+        return 1.0
+    end
+end
+export I
+
 function Rotation(state::HundsCaseB, state′::HundsCaseB)
     S, I, Λ, N, J, F, M = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
@@ -186,6 +197,55 @@ function Zeeman(state::HundsCaseB, state′::HundsCaseB, p::Int64)
     end
 end
 export Zeeman
+
+function Zeeman_NB(state::HundsCaseB, state′::HundsCaseB)
+    # Hirota, equation (2.5.16) and (2.5.18)
+    S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
+    S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)    
+    return (
+        (-1)^(F - M′) * wigner3j(F, 1, F′, -M, 0, M′)
+        * (-1)^(N + S + J′ + 1) * sqrt((2J + 1) * (2J′ + 1)) * wigner6j(N, J, S, J′, N′, 1)
+        * sum(
+            (-1)^k * sqrt((2k + 1)/3)
+            * sum(
+                -(1/√3) * T_kq[q+2,k+1] * (-1)^(N′ - Λ) * wigner3j(N, k, N′, -Λ, q, Λ′)
+                * (1/2) * (
+                    wigner6j(N, N′, 1, 1, k, N′) * (2N′ + 1) * sqrt(N′ * (N′ + 1) * (2N + 1))
+                    + (-1)^k * wigner6j(N′, N, 1, 1, k, N) * (2N + 1) * sqrt(N′ * (N′ + 1) * (2N′ + 1))
+                )
+                for q ∈ -1:1
+            )
+            for k ∈ 0:2
+        )
+    )
+end
+export Zeeman_NB
+
+function Zeeman_ParityDependent(state::HundsCaseB, state′::HundsCaseB)
+    S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
+    S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
+    return (
+        (-1)^(F - M) * wigner3j(F, 1, F′, -M, 0, M′)
+        * (-1)^(J + I + F′ + 1) * ((2F + 1)*(2F′ + 1))^(1/2) * wigner6j(J, F, I, F′, J′, 1)
+        * (-1)^(N + S + J′ + 1) * ((2J + 1)*(2J′ + 1))^(1/2) * wigner6j(N, J, S, J′, N′, 1)
+        * (-1)^(Λ + 2S) * ((2N + 1)*(2N′ + 1))^(1/2)
+        * (S*(S + 1)*(2S + 1))^(1/2)
+        * sum(
+            (-1)^q * δ(Λ′, Λ + 2q)
+            * sum(
+                (-1)^(-J′ + Σ + Λ + 4S + 2q)
+                * (-1)^(S - Σ)
+                * wigner3j(J, S, N, Σ + Λ, -Σ, -Λ)
+                * wigner3j(J′, S, N′, Σ + Λ + q, -Σ + q, -Λ - 2q)
+                * wigner3j(S, 1, S, -Σ, q, Σ - q)
+                * wigner3j(J, 1, J′, -Σ - Λ, -q, Σ + Λ + q)
+                for Σ ∈ -S:S
+            )
+            for q ∈ (-1,1)
+        )
+    )
+end
+export Zeeman_ParityDependent
 
 # function Zeeman(state::HundsCaseB, state′::HundsCaseB, B::Vector{Float64})
 #     # Hirota, equation (2.5.16) and (2.5.19)

@@ -8,34 +8,45 @@ function print_nice(state::State)
 end
 export print_nice
 
+function format_float(value::Number)
+    formatted_str = ""
+    value_str = string(value)
+    value_str = split(value_str, "e")
+    if length(value_str) > 1 
+        formatted_str *= string(round(parse(Float64, value_str[1]), sigdigits=3))
+        formatted_str *= " \\times 10^{"
+        formatted_str *= value_str[2]
+        formatted_str *= "}"
+    else
+        formatted_str *= value_str[1]
+    end
+    return formatted_str
+end
+export format_float
+
 function print_basis_state(basis_state::BasisState)
     str = "\\left|"
     fields = fieldnames(typeof(basis_state))
     for (i, field) in enumerate(fields)
         if 2 <= i < length(fields)
             val = getfield(basis_state, field)
-            val_str = string(val)
-    #         if isinteger(val)  ### used when QNs were Rational rather than HalfInteger
-    #             val_str = string(val)
-    #         else
-    #             val_str = "\\frac{$(val.num)}{$(val.den)}"
-    #         end
-            str *= string(field) * "=" * val_str
-            if i < length(fields)
-                str *= string(", ")
+            if typeof(val) != Float64
+                val_str = string(val)
+        #         if isinteger(val)  ### used when QNs were Rational rather than HalfInteger
+        #             val_str = string(val)
+        #         else
+        #             val_str = "\\frac{$(val.num)}{$(val.den)}"
+        #         end
+                str *= string(field) * "=" * val_str
+                if i < length(fields)-1
+                    str *= string(", ")
+                end
             end
         end
     end
     str *= "\\right\\rangle"
     return str
 end
-
-function print_basis_state(tensor_state::TensorProductState)
-    str = print_basis_state(tensor_state.basis_state1)
-    str *= print_basis_state(tensor_state.basis_state2)
-    return str
-end
-export print_basis_state
 
 function contributing_basis_states(state::State, threshold=1e-3)
     basis_states = typeof(state.basis[1])[]

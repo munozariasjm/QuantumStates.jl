@@ -1,8 +1,11 @@
 module QuantumStates
 
+using UnitsToValue
+using StaticArrays
+
 include("WignerSymbols_Simple.jl")
 include("States.jl")
-include("TensorProductState.jl")
+include("ProductState.jl")
 
 # Various coupling schemes and other state definitions
 include("HundsCaseA.jl")
@@ -12,6 +15,8 @@ include("UncoupledCaseB.jl")
 include("AngularMomentumState.jl")
 include("AngularMomentumState_withSpinRotation.jl")
 include("AngularMomentumState_withSpinRotation_Uncoupled.jl")
+include("HarmonicOscillatorState.jl")
+include("HarmonicOscillatorState_3D.jl")
 
 include("StateOverlaps.jl")
 

@@ -30,6 +30,9 @@ mutable struct State{T<:BasisState}
 end
 export State
 
+⊕(f1::T1, f2::T2) where {T1,T2} = (bs, bs′) -> f1(bs.basis_state1, bs′.basis_state1) + f2(bs.basis_state2, bs′.basis_state2)
+export ⊕
+
 ⊗(f1::T1, f2::T2) where {T1,T2} = (bs, bs′) -> f1(bs.basis_state1, bs′.basis_state1) * f2(bs.basis_state2, bs′.basis_state2)
 export ⊗
 
@@ -601,13 +604,23 @@ export make_operator
 
 function unpack_operator(operator::Expr, basis::Vector{<:BasisState})
     operators = NamedTuple()
-    for expr ∈ operator.args
-        if expr isa Expr
-            param = expr.args[2]
-            operator = eval(expr.args[3])
-            matrix = matrix_from_operator(basis, operator)
-            if param isa Symbol
-                operators = (; operators..., param => Operator(param, operator, matrix))
+    if operator.args[1] != :+ # case if only one term is included in the Hamiltonian
+        expr = operator
+        param = expr.args[2]
+        operator = eval(expr.args[3])
+        matrix = matrix_from_operator(basis, operator)
+        if param isa Symbol
+            operators = (; operators..., param => Operator(param, operator, matrix))
+        end
+    else
+        for expr ∈ operator.args
+            if expr isa Expr
+                param = expr.args[2]
+                operator = eval(expr.args[3])
+                matrix = matrix_from_operator(basis, operator)
+                if param isa Symbol
+                    operators = (; operators..., param => Operator(param, operator, matrix))
+                end
             end
         end
     end
@@ -849,7 +862,7 @@ end
 
 function enumerate_states(state_type, QN_bounds)
     states = state_type[]
-    QNs = fieldnames(state_type)[1:end-1]
+    QNs = [QN for QN ∈ fieldnames(state_type) if QN ∉ (:E, :constraints)]
     
     # Define a state with all QN = 0 to get the constraints for the QNs
     η = NamedTuple([QN => 0 for QN in QNs])
@@ -1019,6 +1032,7 @@ function compute_transitions(H::Hamiltonian, p, threshold=1e-8)
                 if norm(tdm) > threshold
                     transition = Transition(state, state′, state′.E - state.E, tdm)
                     push!(transitions, transition)
+                    H.tdms
                 end
             end
         end
