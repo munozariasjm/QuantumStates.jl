@@ -14,7 +14,7 @@ export T_kq
 abstract type HundsCaseB <: BasisState end
 export HundsCaseB
 
-@composite Base.@kwdef struct HundsCaseB_Rot <: HundsCaseB
+@composite Base.@kwdef struct HundsCaseB <: HundsCaseB
     E::Float64 = 0.0
     v1::HalfInt
     v2::HalfInt

@@ -37,6 +37,14 @@ function overlap(state::HundsCaseB, state′::HundsCaseA)
 end
 overlap(state::HundsCaseA, state′::HundsCaseB) = overlap(state′, state)
 
+function overlap(state::HundsCaseB, state′::HundsCaseA_LinearMolecule)
+    # Eq. (6.149) in Brown & Carrington, note the equation has an error
+    S,  I,  ℓ,  N, J, F,  M      = state.S, state.I, state.Λ, state.N, state.J, state.F, state.M
+    S′, I′, ℓ′, Σ, P, J′, F′, M′ = state′.S, state′.I, state′.ℓ, state′.Σ, state′.P, state′.J, state′.F, state′.M
+    return (-1)^(-J + P + 2S) * sqrt(2N + 1) * wigner3j(J, N, S, P, -ℓ, -Σ) * δ(J, J′) * δ(F, F′) * δ(M, M′)
+end
+overlap(state::HundsCaseA_LinearMolecule, state′::HundsCaseB) = overlap(state′, state)
+
 function overlap(state::HundsCaseA, state′::HundsCaseA_Parity)
     S, I, Λ, Σ, Ω, J, F, M =
         state.S, state.I, state.Λ, state.Σ, state.Ω, state.J, state.F, state.M

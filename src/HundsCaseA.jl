@@ -226,24 +226,27 @@ function Zeeman_S(state::HundsCaseA, state′::HundsCaseA)
     end
 end
 
-function Zeeman_gl(state::HundsCaseA, state′::HundsCaseA)
+function Zeeman_glprime(state::HundsCaseA, state′::HundsCaseA)
     """
-    From CaH optical Zeeman paper, Eq. 4
+    From Benjamin Augenbraun's thesis
     """
     I,  S,  Λ,  J,  Ω,  Σ,  F,  M  = unpack(state)
     I′, S′, Λ′, J′, Ω′, Σ′, F′, M′ = unpack(state′)
 
-    if ~δ(Λ,Λ′) || ~δ(S,S′) || ~δ(I,I′)
+    if ~δ(S,S′) || ~δ(I,I′) || ~δ(M,M′)
         return 0.0
     else
         return (
-            (-1)^(F-M) * wigner3j_(F,1,F′,-M,0,M′) * (-1)^(F′+J+I+1) * sqrt((2F+1)*(2F′+1)) *
-            wigner6j_(J′,F′,I,F,J,1) * 
-            sum(
-                (-1)^(J-Ω) * wigner3j_(J,1,J′,-Ω,q,Ω′) * sqrt((2J+1)*(2J′+1)) *
-                (-1)^(S-Σ) * wigner3j_(S,1,S,-Σ,q,Σ′) * sqrt((2S+1)*(2S′+1))
-                for q ∈ (-1,1)
+                    (-1)^(F-M+S-Σ+J-Ω+1) * (-1)^(F′ + J + I + 1) * sqrt(S * (S + 1) * (2S + 1)) *
+                    sqrt((2F + 1) * (2F′ + 1) * (2J + 1) * (2J′ + 1)) * 
+                    wigner3j(F, 1, F′, -M, 0, M) *
+                    wigner6j(J′, F′, I, F, J, 1) *
+                sum(
+                    δ(Λ′, Λ - 2q)
+                    wigner3j(S, 1, S, -Σ, -q, Σ′) *
+                    wigner(J, 1, J′, -Ω, q, Ω′)
+                    for q in (-1,1)
+                )
             )
-        )
     end
 end

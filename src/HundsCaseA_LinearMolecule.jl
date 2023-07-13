@@ -63,6 +63,9 @@ end
 export SpinUncoupling
 
 function ΛDoubling_q(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)
+    """
+    (Λ_+^2 J_-^2) term
+    """
     v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
     v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
     return (
@@ -74,12 +77,13 @@ function ΛDoubling_q(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_Lin
             wigner3j_(J, 2, J′, -P, -2q, P′)
             for q ∈ (-1,1)
         )
-    ) * δ(ℓ,ℓ′) * δ(Σ,Σ′) * δ(J,J′) * δ(F,F′) * δ(M,M′)
+    ) * δ(ℓ,ℓ′) * δ(Σ,Σ′) * δ(F,F′) * δ(M,M′)
 end
 export ΛDoubling_q
 
 function ΛDoubling_p2q(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)
     """
+    (Λ_+^2 J_- S_-) term
     Brown and Carrington (eq. 9.66)
     """
     v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
@@ -92,7 +96,7 @@ function ΛDoubling_p2q(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_L
             wigner3j_(S, 1, S′, -Σ, q, Σ′)
             for q ∈ (-1,1)
         ) *
-        δ(ℓ,ℓ′) * δ(J,J′) * δ(F,F′) * δ(M,M′)
+        δ(ℓ,ℓ′) * δ(F,F′) * δ(M,M′)
     end
 export ΛDoubling_p2q
 
@@ -123,7 +127,7 @@ function ℓDoubling(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_Line
             for q ∈ (-1,1)
         )
     )
-    return (term1 - term2) * δ(Λ,Λ′) * δ(J,J′) * δ(F,F′) * δ(M,M′)
+    return (term1 - term2) * δ(Λ,Λ′) * δ(F,F′) * δ(M,M′)
 end
         
 function Hyperfine_IL(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)

@@ -182,6 +182,19 @@ function Stark(state::HundsCaseB, state′::HundsCaseB)
 end
 export Stark
 
+function Stark_Transverse(state::HundsCaseB, state′::HundsCaseB, p::Int64)
+    # Hirota, equation (2.5.35)
+    S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
+    S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
+    return (
+            -(-1)^(F - M) * wigner3j(F, 1, F′, -M, p, M′)
+            * (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J, F, I, F′, J′, 1)
+            * (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) ) * wigner6j(N, J, S, J′, N′, 1)
+            * (-1)^(N - Λ) * sqrt( (2N + 1) * (2N′ + 1) ) * wigner3j(N, 1, N′, -Λ, 0, Λ′)
+    )
+end
+export Stark_Transverse
+
 function Zeeman(state::HundsCaseB, state′::HundsCaseB, p::Int64)
     # Hirota, equation (2.5.16) and (2.5.19)
     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)

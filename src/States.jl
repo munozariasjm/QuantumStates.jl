@@ -317,7 +317,7 @@ function states_table(states::Vector{<:State}; threshold=1e-3, dominant_state_on
     vals = zeros(Float64, length(QNs)+3)
     for (i, state) ∈ enumerate(states)
         basis_states, coeffs = contributing_basis_states(state, threshold)
-        vals[1] = i
+        vals[1] = state.idx
         vals[end] = state.E
         
         cs = norm.(coeffs).^2
@@ -645,7 +645,7 @@ end
 # end
 function evaluate_operator!(basis, o::Operator{F}) where F
     for i ∈ eachindex(basis), j ∈ eachindex(basis)
-        o.matrix[i,j] = round( o.operator(basis[i], basis[j]), digits=20 )
+        o.matrix[i,j] = o.operator(basis[i], basis[j])
     end
     return nothing
 end
