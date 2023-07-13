@@ -203,6 +203,7 @@ function Zeeman_L(state::HundsCaseA, state′::HundsCaseA)
         )
     end
 end
+export Zeeman_L
 
 function Zeeman_S(state::HundsCaseA, state′::HundsCaseA)
     """
@@ -225,6 +226,7 @@ function Zeeman_S(state::HundsCaseA, state′::HundsCaseA)
             )
     end
 end
+export Zeeman_S
 
 function Zeeman_glprime(state::HundsCaseA, state′::HundsCaseA)
     """
@@ -250,3 +252,4 @@ function Zeeman_glprime(state::HundsCaseA, state′::HundsCaseA)
             )
     end
 end
+export Zeeman_glprime
