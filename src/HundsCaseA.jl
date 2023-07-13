@@ -244,7 +244,7 @@ function Zeeman_glprime(state::HundsCaseA, state′::HundsCaseA)
                     wigner3j(F, 1, F′, -M, 0, M) *
                     wigner6j(J′, F′, I, F, J, 1) *
                 sum(
-                    δ(Λ′, Λ - 2q)
+                    δ(Λ′, Λ - 2q) *
                     wigner3j(S, 1, S, -Σ, -q, Σ′) *
                     wigner(J, 1, J′, -Ω, q, Ω′)
                     for q in (-1,1)
