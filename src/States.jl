@@ -413,6 +413,7 @@ function update_basis_tdms!(H::Hamiltonian)
         for (j, bstate′) ∈ enumerate(H.basis)
             for p ∈ -1:1
                 H.basis_tdms[i,j,p+2] = TDM(bstate, bstate′, p)
+                H.basis_tdms[j,i,p+2] = conj(H.basis_tdms[i,j,p+2])
             end
         end
     end
@@ -425,6 +426,7 @@ function update_basis_tdms_m!(H::Hamiltonian)
         for (j, bstate′) ∈ enumerate(H.basis)
             for p ∈ -1:1
                 H.basis_tdms_m[i,j,p+2] = TDM_magnetic(bstate, bstate′, p)
+                # H.basis_tdms_m[j,i,p+2] = conj(H.basis_tdms_m[i,j,p+2])
             end
         end
     end
@@ -432,9 +434,10 @@ function update_basis_tdms_m!(H::Hamiltonian)
 end
 export update_basis_tdms_m!
 
+# Updated 7/15/2023
 function update_tdms!(H::Hamiltonian, idxs=eachindex(H.states))
     for i ∈ idxs, j ∈ idxs
-        if j >= i
+        if j > i
             state = H.states[i]
             state′ = H.states[j]
             for p ∈ -1:1
@@ -442,13 +445,31 @@ function update_tdms!(H::Hamiltonian, idxs=eachindex(H.states))
                 for m ∈ eachindex(H.basis), n ∈ eachindex(H.basis)
                     H.tdms[i,j,p+2] += conj(state.coeffs[m]) * state′.coeffs[n] * H.basis_tdms[m,n,p+2]
                 end
-                H.tdms[j,i,p+2] += conj(H.tdms[i,j,p+2])
+                H.tdms[j,i,p+2] = conj(H.tdms[i,j,p+2])
             end
         end
     end
     return nothing
 end
 export update_tdms!
+
+# function update_tdms!(H::Hamiltonian, idxs=eachindex(H.states))
+#     for i ∈ idxs, j ∈ idxs
+#         if j >= i
+#             state = H.states[i]
+#             state′ = H.states[j]
+#             for p ∈ -1:1
+#                 H.tdms[i,j,p+2] = H.tdms[j,i,p+2] = 0.0
+#                 for m ∈ eachindex(H.basis), n ∈ eachindex(H.basis)
+#                     H.tdms[i,j,p+2] += conj(state.coeffs[m]) * state′.coeffs[n] * H.basis_tdms[m,n,p+2]
+#                 end
+#                 H.tdms[j,i,p+2] += conj(H.tdms[i,j,p+2])
+#             end
+#         end
+#     end
+#     return nothing
+# end
+# export update_tdms!
 
 function update_tdms_m!(H::Hamiltonian, idxs=eachindex(H.states))
     for i ∈ idxs, j ∈ idxs

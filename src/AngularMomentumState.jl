@@ -40,7 +40,7 @@ function TDM(state::AngularMomentumState, state′::AngularMomentumState, p::Int
     N,  M  = unpack(state)
     N′, M′ = unpack(state′)
     return (
-        (-1)^p * (-1)^(N - M) * wigner3j_(N, 1, N′, M, p, -M′) * sqrt(2N + 1)
+        (-1)^p * (-1)^(N - M) * wigner3j(N, 1, N′, M, p, -M′) * sqrt(2N + 1)
     )
 end
 
@@ -60,16 +60,16 @@ function d₀(state::AngularMomentumState, state′::AngularMomentumState)
     (-1)^M * sqrt((2N+1)*(2N′+1)) * wigner3j(N, 1, N′, -M, 0, M′) * wigner3j(N, 1, N′, 0, 0, 0)
 end
 
-function SplitMStates(state::AngularMomentumState, state′::AngularMomentumState)
+function Zeeman(state::AngularMomentumState, state′::AngularMomentumState)
     N,  M  = state.N,  state.M
     N′, M′ = state′.N, state′.M
     if ~δ(M, M′) || ~δ(N, N′)
         return 0.0
     else
-        return M
+        return (-1)^(N - M) * sqrt(N * (N + 1) * (2N + 1)) * wigner3j(N, 1, N′, M, 0, -M′)
     end
 end
-export SplitMStates
+export Zeeman
 
 # function H(state::AngularMomentumState, state′::AngularMomentumState)
 #     δ(state, state′) * state.E
