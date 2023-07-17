@@ -16,6 +16,7 @@ include("AngularMomentumState.jl")
 include("AngularMomentumState_Labelled.jl")
 include("AngularMomentumState_withSpinRotation.jl")
 include("AngularMomentumState_withSpinRotation_Uncoupled.jl")
+include("AsymmetricTopMolecule.jl")
 include("HarmonicOscillatorState.jl")
 include("HarmonicOscillatorState_3D.jl")
 

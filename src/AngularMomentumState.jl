@@ -39,7 +39,7 @@ export Rotation
 function TDM(state::AngularMomentumState, state′::AngularMomentumState, p::Int64)
     N,  M  = unpack(state)
     N′, M′ = unpack(state′)
-    return (
+    return ~δ(N, N′) * (
         (-1)^p * (-1)^(N - M) * wigner3j(N, 1, N′, M, p, -M′) * sqrt(2N + 1)
     )
 end
