@@ -11,14 +11,12 @@ using HalfIntegers
     S::HalfInt
     I::HalfInt
     N::HalfInt
-    K_A::HalfInt
-    K_C::HalfInt
+    K::HalfInt
     J::HalfInt
     F::HalfInt
     M::HalfInt
     constraints = (
-        K_A = 0:N,
-        K_C = (N - K_A):N,
+        K = -N:N,
         J = abs(N - S):abs(N + S),
         F = abs(J - I):abs(J + I),
         M = -F:F
@@ -26,13 +24,46 @@ using HalfIntegers
 end
 export AsymmetricTopMolecule
 
-function Rotation_A(state::HundsCaseB, state′::HundsCaseB)
-    S, I, Λ, N, J, F, M = unpack(state)
-    S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
-    if ~δ(Λ, Λ′) || ~δ(N, N′) || ~δ(J, J′) || ~δ(F, F′) || ~δ(M, M′)
+# Define the tensor for the rotational constants
+# Based on Comaker et al. (1973)
+const T_Rotational = [
+    -√3 0 0 
+    0 0 0
+    √6 0 1/2
+    ]
+const T_A = T_Rotational .* [
+    1 0 0 
+    0 0 0
+    2 0 0
+    ]
+const T_B = T_Rotational .* [
+    1 0 0 
+    0 0 0
+    -1 0 1
+    ]
+const T_C = T_Rotational .* [
+    1 0 0 
+    0 0 0
+    -1 0 -1
+    ];
+
+function Rotation(state::AsymmetricTopMolecule, state′::AsymmetricTopMolecule, T)
+    N,  J,  F,  M,  K  = state.N,  state.J,  state.F,  state.M,  state.K
+    N′, J′, F′, M′, K′ = state′.N, state′.J, state′.F, state′.M, state′.K
+    if ~δ(N, N′) || ~δ(J, J′) || ~δ(F, F′) || ~δ(M, M′)
         return 0.0
     else
-        return N * (N + 1)
+        return (
+            (-1)^(N - K) * N * (N + 1) * (2N + 1) *
+            sum(
+                T[k+1,q+2] * wigner3j(N, k, N, -K, q, K′)
+                * (-1)^k * (2k + 1)^(1/2) * wigner6j(N, N, 1, k, 1, N)
+                for k ∈ 0:2, q ∈ -1:1
+            )
+        )
     end
 end
-export Rotation
+Rotation_A(state, state′) = Rotation(state, state′, T_A)
+Rotation_B(state, state′) = Rotation(state, state′, T_B)
+Rotation_C(state, state′) = Rotation(state, state′, T_C)
+export Rotation, Rotation_A, Rotation_B, Rotation_C

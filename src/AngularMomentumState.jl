@@ -40,7 +40,7 @@ function TDM(state::AngularMomentumState, state′::AngularMomentumState, p::Int
     N,  M  = unpack(state)
     N′, M′ = unpack(state′)
     return ~δ(N, N′) * (
-        (-1)^p * (-1)^(N - M) * wigner3j(N, 1, N′, M, p, -M′) * sqrt(2N + 1)
+        (-1)^p * (-1)^(N - M) * wigner3j(N, 1, N′, -M, -p, M′) * sqrt(2N + 1)
     )
 end
 
@@ -49,7 +49,7 @@ function TDM_magnetic(state::AngularMomentumState, state′::AngularMomentumStat
     N,  M  = unpack(state)
     N′, M′ = unpack(state′)
     return -(
-        (-1)^p * (-1)^(N - M) * sqrt(N * (N + 1) * (2N + 1)) * wigner3j(N, 1, N′, M, p, -M′)
+        (-1)^p * (-1)^(N - M) * sqrt(N * (N + 1) * (2N + 1)) * wigner3j(N, 1, N′, -M, -p, M′)
     )
 end
 # TDM_magnetic(state::State, state′::State, p::Int64) = extend_operator(TDM_magnetic, state, state′, p)
@@ -66,7 +66,7 @@ function Zeeman(state::AngularMomentumState, state′::AngularMomentumState)
     if ~δ(M, M′) || ~δ(N, N′)
         return 0.0
     else
-        return (-1)^(N - M) * sqrt(N * (N + 1) * (2N + 1)) * wigner3j(N, 1, N′, M, 0, -M′)
+        return (-1)^(N - M) * sqrt(N * (N + 1) * (2N + 1)) * wigner3j(N, 1, N′, -M, 0, M′)
     end
 end
 export Zeeman
