@@ -39,7 +39,7 @@ export Rotation
 function TDM(state::AngularMomentumState, state′::AngularMomentumState, p::Int64)
     N,  M  = unpack(state)
     N′, M′ = unpack(state′)
-    return ~δ(N, N′) * (
+    return (
         (-1)^p * (-1)^(N - M) * wigner3j(N, 1, N′, -M, -p, M′) * sqrt(2N + 1)
     )
 end
@@ -48,7 +48,7 @@ function TDM_magnetic(state::AngularMomentumState, state′::AngularMomentumStat
     # Assumes magnetic moment aligned along z-axis of molecule-fixed axis
     N,  M  = unpack(state)
     N′, M′ = unpack(state′)
-    return -(
+    return (
         (-1)^p * (-1)^(N - M) * sqrt(N * (N + 1) * (2N + 1)) * wigner3j(N, 1, N′, -M, -p, M′)
     )
 end
