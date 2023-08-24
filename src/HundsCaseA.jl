@@ -104,8 +104,7 @@ function Hyperfine_IL(state::HundsCaseA, state′::HundsCaseA)
             Λ * (-1)^(J′ + I + F + J - Ω) * 
             sqrt(I * (I + 1) * (2I + 1) * (2J + 1) * (2J′ + 1)) *
             wigner6j_(I, J′, F, J, I, 1) * 
-            wigner3j_(J, 1, J′, -Ω, 0, Ω′) * 
-            δ(Λ, Λ′) * δ(F, F′) * δ(M, M′)
+            wigner3j_(J, 1, J′, -Ω, 0, Ω′)
         )
     end
 end

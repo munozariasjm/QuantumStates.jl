@@ -28,7 +28,7 @@ end
 function I(state::AngularMomentumState_Labelled, state′::AngularMomentumState_Labelled)
     L,  N,  M  = unpack(state)
     L′, N′, M′ = unpack(state′)
-    if ~δ(N, N′) || ~δ(M, M′)
+    if ~δ(L, L′) || ~δ(N, N′) || ~δ(M, M′)
         return 0.0
     else
         return 1.0
@@ -46,11 +46,11 @@ export Rotation
 function TDM(state::AngularMomentumState_Labelled, state′::AngularMomentumState_Labelled, p::Int64)
     L,  N,  M  = unpack(state)
     L′, N′, M′ = unpack(state′)
-    if δ(L, L′)
+    if L′ <= L
         return 0.0
     else
         return (
-            (-1)^p * (-1)^(N - M) * wigner3j(N, 1, N′, M, p, -M′) * sqrt(2N + 1)
+            (-1)^p * (-1)^(N - M) * wigner3j(N, 1, N′, -M, -p, M′) * sqrt(2N′ + 1)
         )
     end
 end

@@ -5,9 +5,9 @@ using HalfIntegers
 
 @composite Base.@kwdef struct AsymmetricTopMolecule <: HundsCaseB
     E::Float64 = 0.0
-    v1::HalfInt
-    v2::HalfInt
-    v3::HalfInt
+    v_1::HalfInt
+    v_2::HalfInt
+    v_3::HalfInt
     S::HalfInt
     I::HalfInt
     N::HalfInt
@@ -27,24 +27,24 @@ export AsymmetricTopMolecule
 # Define the tensor for the rotational constants
 # Based on Comaker et al. (1973)
 const T_Rotational = [
-    -√3 0 0 
-    0 0 0
-    √6 0 1/2
+    0 0 -1/√3 0 0
+    0 0 0 0 0
+    1/√6 0 0 0 1/2
     ]
 const T_A = T_Rotational .* [
-    1 0 0 
-    0 0 0
-    2 0 0
+    0 0 1 0 0
+    0 0 0 0 0
+    0 0 2 0 0
     ]
 const T_B = T_Rotational .* [
-    1 0 0 
-    0 0 0
-    -1 0 1
+    0 0 1 0 0 
+    0 0 0 0 0
+    0 -1 0 1 0
     ]
 const T_C = T_Rotational .* [
-    1 0 0 
-    0 0 0
-    -1 0 -1
+    0 0 1 0 0 
+    0 0 0 0 0
+    0 -1 0 -1 0
     ];
 
 function Rotation(state::AsymmetricTopMolecule, state′::AsymmetricTopMolecule, T)
@@ -54,11 +54,11 @@ function Rotation(state::AsymmetricTopMolecule, state′::AsymmetricTopMolecule,
         return 0.0
     else
         return (
-            (-1)^(N - K) * N * (N + 1) * (2N + 1) *
+            (-1)^(N′ - K) * N * (N + 1) * (2N + 1) *
             sum(
-                T[k+1,q+2] * wigner3j(N, k, N, -K, q, K′)
+                T[k+1,q+3] * wigner3j(N, k, N, -K, q, K′)
                 * (-1)^k * (2k + 1)^(1/2) * wigner6j(N, N, 1, k, 1, N)
-                for k ∈ 0:2, q ∈ -1:1
+                for k ∈ 0:2, q ∈ -2:2
             )
         )
     end
