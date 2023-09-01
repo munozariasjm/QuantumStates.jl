@@ -2,19 +2,19 @@ using Parameters
 
 Base.@kwdef struct HundsCaseA_LinearMolecule <: HundsCaseA
     E::Float64 = 0.0
-    v_1::HalfInt
-    v_2::HalfInt
-    ℓ::HalfInt
-    v_3::HalfInt
-    Λ::HalfInt
-    K::HalfInt # K = Λ + ℓ
-    I::HalfInt
-    S::HalfInt
-    Σ::HalfInt
-    J::HalfInt
-    P::HalfInt # P = Λ + ℓ + Σ
-    F::HalfInt
-    M::HalfInt
+    v_1::HalfInt = 0
+    v_2::HalfInt = 0
+    ℓ::HalfInt = 0
+    v_3::HalfInt = 0
+    Λ::HalfInt = 0
+    K::HalfInt = 0 # K = Λ + ℓ
+    I::HalfInt = 0
+    S::HalfInt = 0
+    Σ::HalfInt = 0
+    J::HalfInt = 0
+    P::HalfInt = 0 # P = Λ + ℓ + Σ
+    F::HalfInt = 0
+    M::HalfInt = 0
     constraints = (
         K = Λ + ℓ,
         Σ = -S:S,

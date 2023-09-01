@@ -37,6 +37,13 @@ function unpack(state::HundsCaseB)
 end
 export unpack
 
+function overlap(state::HundsCaseB, state′::HundsCaseB)
+    S, I, Λ, N, J, F, M = unpack(state)
+    S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
+    return δ(S,S′) * δ(I,I′) * δ(Λ,Λ′) * δ(N,N′) * δ(J,J′) * δ(F,F′) * δ(M,M′)
+end
+export overlap
+
 function I(state::HundsCaseB, state′::HundsCaseB)
     S, I, Λ, N, J, F, M = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)

@@ -16,17 +16,17 @@ export HundsCaseB
 
 @composite Base.@kwdef struct HundsCaseB_LinearMolecule <: HundsCaseB
     E::Float64 = 0.0
-    v1::HalfInt
-    v2::HalfInt
-    ℓ::HalfInt
-    v3::HalfInt
-    Λ::HalfInt
-    S::HalfInt 
-    I::HalfInt
-    N::HalfInt    
-    J::HalfInt
-    F::HalfInt
-    M::HalfInt
+    v_1::HalfInt = 0
+    v_2::HalfInt = 0
+    ℓ::HalfInt = 0
+    v_3::HalfInt = 0
+    Λ::HalfInt = 0
+    S::HalfInt = 0
+    I::HalfInt = 0
+    N::HalfInt = 0
+    J::HalfInt = 0
+    F::HalfInt = 0
+    M::HalfInt = 0
     constraints = (
         N = abs(Λ):∞,
         J = abs(N - S):abs(N + S),
@@ -34,14 +34,32 @@ export HundsCaseB
         M = -F:F
     )
 end
-export HundsCaseB_Rot
+export HundsCaseB_LinearMolecule
 
-function unpack(state::HundsCaseB)
+function T(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)
+    return state.E * (state == state′)
+end
+export T
+
+function T(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule)
+    return state.E * (state == state′)
+end
+export T
+
+function T(state::HundsCaseB_LinearMolecule, state′::HundsCaseA_LinearMolecule)
+    return 0.0
+end
+
+function T(state::HundsCaseA_LinearMolecule, state′::HundsCaseB_LinearMolecule)
+    return 0.0
+end
+
+function unpack(state::HundsCaseB_LinearMolecule)
     return (state.S, state.I, state.Λ, state.N, state.J, state.F, state.M)
 end
 export unpack
 
-function Rotation(state::HundsCaseB, state′::HundsCaseB)
+function Rotation(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule)
     S, I, Λ, N, J, F, M = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
     if ~δ(Λ, Λ′) || ~δ(N, N′) || ~δ(J, J′) || ~δ(F, F′) || ~δ(M, M′)
@@ -52,7 +70,7 @@ function Rotation(state::HundsCaseB, state′::HundsCaseB)
 end
 export Rotation
 
-function RotationDistortion(state::HundsCaseB, state′::HundsCaseB)
+function RotationDistortion(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule)
     S, I, Λ, N, J, F, M = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
     if ~δ(Λ, Λ′) || ~δ(N, N′) || ~δ(J, J′) || ~δ(F, F′) || ~δ(M, M′)
@@ -64,7 +82,7 @@ end
 export RotationDistortion
     
 # Spin-rotation for zero internuclear axis angular momentum, i.e., Λ = 0
-function SpinRotation_Λ0(state::HundsCaseB, state′::HundsCaseB)
+function SpinRotation_Λ0(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule)
     S, I, Λ, N, J, F, M = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
     if ~δ(Λ, Λ′) || ~δ(N, N′) || ~δ(J, J′) || ~δ(F, F′) || ~δ(M, M′)
@@ -80,7 +98,7 @@ end
 export SpinRotation_Λ0
 
 # Spin-rotation for Λ != 0, reduces to above matrix element for Λ = 0
-function SpinRotation(state::HundsCaseB, state′::HundsCaseB)
+function SpinRotation(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule)
     # Hirota, eq. (2.3.35)
     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
@@ -106,7 +124,7 @@ function SpinRotation(state::HundsCaseB, state′::HundsCaseB)
 end
 export SpinRotation
 
-function Hyperfine_IS(state::HundsCaseB, state′::HundsCaseB)
+function Hyperfine_IS(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule)
     # Fermi-contact interaction
     # Hirota, pg. 39
     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
@@ -124,7 +142,7 @@ function Hyperfine_IS(state::HundsCaseB, state′::HundsCaseB)
 end
 export Hyperfine_IS
 
-function Hyperfine_Dipolar(state::HundsCaseB, state′::HundsCaseB)
+function Hyperfine_Dipolar(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule)
     # Dipolar interaction term, from c(Iz ⋅ Sz)
     # Hirota, pg. 39
     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
@@ -143,7 +161,7 @@ function Hyperfine_Dipolar(state::HundsCaseB, state′::HundsCaseB)
 end
 export Hyperfine_Dipolar
 
-function ℓDoubling(state::HundsCaseB, state′::HundsCaseB)
+function ℓDoubling(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule)
     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
     if ~δ(N, N′) || ~δ(J, J′) || ~δ(F, F′) || ~δ(M, M′) || ~δ(abs(Λ′-Λ), 2)
@@ -184,7 +202,7 @@ export ℓDoubling
 # end
 # export Hyperfine_SK
 
-function Stark(state::HundsCaseB, state′::HundsCaseB)
+function Stark(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule)
     # Hirota, equation (2.5.35)
     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
@@ -197,7 +215,7 @@ function Stark(state::HundsCaseB, state′::HundsCaseB)
 end
 export Stark
 
-function Zeeman(state::HundsCaseB, state′::HundsCaseB, p::Int64)
+function Zeeman(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule, p::Int64)
     # Hirota, equation (2.5.16) and (2.5.19)
     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
@@ -231,7 +249,7 @@ export Zeeman
 # end
 # export Zeeman
 
-function Σ(state::HundsCaseB)
+function Σ(state::HundsCaseB_LinearMolecule)
     @unpack Λ, N, S, J = state
     val = zero(Float64)
     for Σ ∈ -S:S
@@ -250,7 +268,7 @@ end
 Σ(state::State) = sum(Σ(state.basis[i]) * state.coeffs[i] * conj(state.coeffs[i]) for i ∈ eachindex(state.basis))
 export Σ
 
-function TDM_magnetic(state::HundsCaseB, state′::HundsCaseB, p::Int64)
+function TDM_magnetic(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule, p::Int64)
     # Assumes magnetic moment aligned along z-axis of molecule-fixed axis
     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
@@ -267,7 +285,7 @@ end
 TDM_magnetic(state::State, state′::State, p::Int64) = extend_operator(TDM_magnetic, state, state′, p)
 export TDM_magnetic
 
-function TDM(state::HundsCaseB, state′::HundsCaseB, p::Int64)
+function TDM(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule, p::Int64)
     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
     return (
@@ -320,7 +338,7 @@ function 𝒫(K,P,ϵ)
 end             
 export 𝒫
                                                             
-function polarizability(state::HundsCaseB, state′::HundsCaseB, α, ϵ)
+function polarizability(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule, α, ϵ)
     S,  I,  Λ,  N,  J,  F,  M  = unpack(state)
     S′, I′, Λ′, N′, J′, F′, M′ = unpack(state′)
     val = 0.0

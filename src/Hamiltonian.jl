@@ -13,21 +13,46 @@ end
 export Hamiltonian
 
 """
-    
+    Assumes that H1 and H2 have bases of the same state type and that they have zero overlap.
 """
-@with_kw mutable struct CombinedHamiltonian{T1<:BasisState, T2<:BasisState, F, F1, F2}
+mutable struct CombinedHamiltonian{T1<:BasisState, T2<:BasisState, F, F1, F2}
     H1::Hamiltonian{T1, F1}
     H2::Hamiltonian{T2, F2}
-    P::Matrix{ComplexF64}           = change_of_basis_matrix(H1.basis, H2.basis)
-    basis::Vector{T1}               = H1.basis
-    operator::Expr                  = Expr(:nothing)
-    parameters::ParameterList       = ParameterList(Dict{Symbol, Float64}())
-    states::Vector{State{T1}}       = [H1.states; convert_basis(H2.states, basis)]
-    operators::F                    = unpack_operator(operator, basis)
-    matrix::Matrix{ComplexF64}      = create_block_diagonal_matrix(H1.matrix, H2.matrix)
-    tdms::Array{ComplexF64, 3}      = zeros(ComplexF64, length(states), length(states), 3)
-    basis_tdms::Array{ComplexF64}   = zeros(ComplexF64, length(basis), length(basis), 3)
+    basis::Vector{T1}
+    operator::Expr
+    parameters::ParameterList
+    states::Vector{State{T1}}
+    operators::F
+    matrix::Matrix{ComplexF64}
+    tdms::Array{ComplexF64, 3}
+    basis_tdms::Array{ComplexF64}
 end
+
+function CombinedHamiltonian(H1, H2)
+    H1′ = deepcopy(H1)
+    H2′ = deepcopy(H2)
+    basis′ = [H1.basis; H2.basis]
+    operator′ = Expr(:nothing)
+    parameters′ = ParameterList(Dict{Symbol, Float64}())
+    states′ = [convert_basis(H1′.states, basis′); convert_basis(H2′.states, basis′)]
+    operators′ = unpack_operator(operator′, basis′)
+    matrix′ = create_block_diagonal_matrix(H1′.matrix, H2′.matrix)
+    tdms′ = zeros(ComplexF64, length(states′), length(states′), 3)
+    basis_tdms′ = zeros(ComplexF64, length(states′), length(states′), 3)
+    CombinedHamiltonian(
+        H1′,
+        H2′,
+        basis′,
+        operator′,
+        parameters′,
+        states′,
+        operators′,
+        matrix′,
+        tdms′,
+        basis_tdms′
+    )
+end
+
 export CombinedHamiltonian
 
 function change_of_basis_matrix(basis, basis′)
@@ -55,10 +80,10 @@ function convert_basis(H::Hamiltonian, basis′)
 
     matrix′ = P' * H.matrix * P
 
-    operators′ = Operator[]
+    operators′ = NamedTuple()
     for operator ∈ H.operators
         operator_matrix′ = P' * operator.matrix * P
-        push!(operators′, Operator(operator.param, operator.operator, operator_matrix′))
+        operators′ = (; operators′..., operator.param => Operator(operator.param, operator.operator, operator_matrix′))
     end
 
     return Hamiltonian(
@@ -201,16 +226,16 @@ function add_to_H(H::CombinedHamiltonian, param::Symbol, f::Function)
     operators = (; H.operators..., param => Operator(param, f, matrix))
 
     return CombinedHamiltonian(
-        H1=H.H1,
-        H2=H.H2,
-        basis=H.basis,
-        operator=operator,
-        parameters=parameters,
-        states=H.states,
-        operators=operators,
-        matrix=H.matrix,
-        tdms=H.tdms,
-        basis_tdms=H.basis_tdms
+        H.H1,
+        H.H2,
+        H.basis,
+        operator,
+        parameters,
+        H.states,
+        operators,
+        H.matrix,
+        H.tdms,
+        H.basis_tdms
     )
 end
 export add_to_H
@@ -234,8 +259,10 @@ export add_to_H
 # function +(H1::Hamiltonian, H2::Hamiltonian)
 #     Hamiltonian(H1.basis, )
 
-
-@generated function evaluate_(H::Hamiltonian, _::Val{N}) where N
+"""
+    Do we need to include type for H?
+"""
+@generated function evaluate_(H, _::Val{N}) where N
     quote
         Base.Cartesian.@nexprs $N i -> evaluate_operator!(H.basis, H.operators[i])
     end
@@ -262,7 +289,7 @@ end
 
     Additionally reevaluates the matrix elements of all operators in the Hamiltonian. 
 """
-function full_evaluate!(H::Hamiltonian)
+function full_evaluate!(H)
     evaluate_(H, Val(length(H.operators)))
     H.matrix = sum(getproperty(H.parameters, operator.param) .* operator.matrix for operator ∈ H.operators)
     return nothing
@@ -285,12 +312,7 @@ function evaluate!(H::CombinedHamiltonian)
     n = length(H.H1.states)
     m = length(H.H2.states)
     H.matrix[1:n, 1:n] .+= H.H1.matrix
-    size(H.P') |> display
-    size(H.H2.matrix) |> display
-    size(H.P) |> display
-    # size(H.P' * H.H2.matrix * H.P') |> display
-    print(m)
-    # H.matrix[(n+1):(n+m), (n+1):(n+m)] .+= H.P' * H.H2.matrix * H.P
+    H.matrix[(n+1):(n+m), (n+1):(n+m)] .+= H.H2.matrix
     return nothing
 end
 export evaluate!
@@ -304,14 +326,6 @@ function solve!(H)
     return nothing
 end
 export solve!
-
-# function solve!(H::CombinedHamiltonian)
-#     solve!(H.H1)
-#     solve!(H.H2)
-#     H.states = [H.H1.states; convert_basis(H.H2.states, H.basis)]
-#     return nothing
-# end
-# export solve!
 
 @with_kw mutable struct Hamiltonian_Old{T1, T2<:BasisState}
     H_operator::T1
@@ -503,7 +517,7 @@ export scan_parameters
 
     scan_iterator = 
 """
-function scan_parameters(H::Hamiltonian, scan_values::T, iterator::F1, H_func!::F2, output_func::F3; n_threads=Threads.nthreads()) where {T,F1,F2,F3}
+function scan_parameters(H, scan_values::T, iterator::F1, H_func!::F2, output_func::F3; n_threads=Threads.nthreads()) where {T,F1,F2,F3}
     scan_iterator = iterator(scan_values...)
     
     n_values = length(scan_iterator)
