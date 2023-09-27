@@ -78,6 +78,37 @@ function wigner6j(j1,j2,j3,J1,J2,J3)
 end
 export wigner6j
     
+function wigner9j(j1, j2, j3, j4, j5, j6, j7, j8, j9)::Float64
+    val = 0.0
+    kmin = max(abs(j1 - j9), abs(j4 - j8), abs(j2 - j6))
+    kmax = min(abs(j1 + j9), abs(j4 + j8), abs(j2 + j6))
+    if kmax >= kmin
+        val += sum(
+            (-1)^(2k) * (2k + 1) * 
+            wigner6j(j1, j4, j7, j8, j9, k) * 
+            wigner6j(j2, j5, j8, j4, k, j6) *
+            wigner6j(j3, j6, j9, k, j1, j2) for k in kmin:kmax)
+    end 
+    return val
+end
+
+function wigner3j_(j1, j2, j3, m1, m2, m3)
+    try 
+        WignerSymbols.wigner3j(Float64, j1, j2, j3, m1, m2, m3) 
+    catch 
+        0.0
+    end
+end
+
+function wigner6j_(j1, j2, j3, m1, m2, m3)
+    try 
+        WignerSymbols.wigner6j(Float64, j1, j2, j3, m1, m2, m3) 
+    catch 
+        0.0
+    end
+end
+export wigner6j_
+
 # struct QuantumNumber
 #     val::Int64
 #     is_half::Bool

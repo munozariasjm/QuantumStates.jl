@@ -5,6 +5,7 @@ using StaticArrays
 using Parameters
 
 include("WignerSymbols_Simple.jl")
+include("Basis.jl")
 include("States.jl")
 include("Hamiltonian.jl")
 include("Transitions.jl")

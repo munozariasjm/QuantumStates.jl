@@ -14,13 +14,6 @@ using NamedTupleTools
 
 import ProgressMeter: Progress, next!
 
-abstract type BasisState end
-export BasisState
-
-Base.@kwdef struct QuantumState <: BasisState
-    E::Float64 = 0.0
-end
-
 mutable struct State{T<:BasisState}
     E::Float64
     basis::Vector{T}
@@ -48,7 +41,7 @@ energy(s::State) = s.E
 export energy
 
 """
-Returns a vector of states based on a basis.
+    Returns a vector of states based on a basis.
 """
 function states_from_basis(basis::Vector{<:BasisState})
     states = [State(0.0, basis, zeros(ComplexF64, length(basis)), i) for i in 1:length(basis)]
@@ -78,60 +71,6 @@ export ⋅
 
 norm(state::State) = norm(state.coeffs)
 export norm
-
-function wigner3j_fromcg(j1, m1, j2, m2, j3, m3)
-    return (-1)^(j1-j2-m3) * CG(j1, m1, j2, m2, j3, -m3) / sqrt(2j3 + 1)
-end
-export wigner3j_fromcg
-
-function wigner6j_fromcg(j1, j2, j3, j4, j5, j6)
-    sum(
-        (-1)^(j1 + j2 + j3 + j4 + j5 + j6 - m1 - m2 - m3 - m4 - m5 - m6)
-        * wigner3j_fromcg(j1, -m1, j2, -m2, j3, -m3)
-        * wigner3j_fromcg(j1, m1, j5, -m5, j6, m6)
-        * wigner3j_fromcg(j4, m4, j2, m2, j6, -m6)
-        * wigner3j_fromcg(j4, -m4, j5, m5, j3, m3)
-        for m1 ∈ -j1:j1,
-            m2 ∈ -j2:j2,
-            m3 ∈ -j3:j3,
-            m4 ∈ -j4:j4,
-            m5 ∈ -j5:j5,
-            m6 ∈ -j6:j6
-        if (m1 + m2 + m3 == 0) & (m1 - m5 + m6 == 0) & (m4 + m2 - m6 == 0) & (-m4 + m5 + m3 == 0)
-    )
-end
-export wigner6j_fromcg
-
-function wigner3j_(j1, j2, j3, m1, m2, m3)
-    try 
-        WignerSymbols.wigner3j(Float64, j1, j2, j3, m1, m2, m3) 
-    catch 
-        0.0
-    end
-end
-
-function wigner6j_(j1, j2, j3, m1, m2, m3)
-    try 
-        WignerSymbols.wigner6j(Float64, j1, j2, j3, m1, m2, m3) 
-    catch 
-        0.0
-    end
-end
-export wigner6j_
-
-function wigner9j(j1, j2, j3, j4, j5, j6, j7, j8, j9)::Float64
-    val = 0.0
-    kmin = max(abs(j1 - j9), abs(j4 - j8), abs(j2 - j6))
-    kmax = min(abs(j1 + j9), abs(j4 + j8), abs(j2 + j6))
-    if kmax >= kmin
-        val += sum(
-            (-1)^(2k) * (2k + 1) * 
-            wigner6j(j1, j4, j7, j8, j9, k) * 
-            wigner6j(j2, j5, j8, j4, k, j6) *
-            wigner6j(j3, j6, j9, k, j1, j2) for k in kmin:kmax)
-    end 
-    return val
-end
 
 function order(basis::Vector{<:BasisState}, ordering_QN)
     all_QN = [getfield(state, ordering_QN) for state in basis]
@@ -342,8 +281,6 @@ macro make_operator(basis, operator_expr)
     return quote
         operators = NamedTuple()
         basis = $(esc(basis))
-        # println($(length(operator_expr.args)))
-        # println($(operator_expr.args[3]))
         for expr ∈ $(operator_expr.args)
             if expr isa Expr
                 param = expr.args[2]
@@ -352,9 +289,7 @@ macro make_operator(basis, operator_expr)
                 matrix = matrix_from_operator(basis, operator)
                 Operator(param, operator, matrix)
                 if param isa Symbol
-                    println(operators)
                     operators = (param => 1,)
-                    # operators = (; operators..., 1)
                 end
             end
         end
@@ -428,157 +363,17 @@ function findindex(QNs, QN::Symbol)
     return (exists, i)
 end
 
-# Need to redefine so that this is type-stable...
-function enumerate_states(state_type, QN_bounds1, QN_bounds2)
-    basis_states1 = enumerate_states(state_type.types[1], QN_bounds1)
-    basis_states2 = enumerate_states(state_type.types[2], QN_bounds2)
-    basis = state_type[]
-    for basis_state1 ∈ basis_states1
-        for basis_state2 ∈ basis_states2
-            push!(basis, state_type(basis_state1, basis_state2))
-        end
-    end
-    return basis
-end
-
-function enumerate_states(state_type, QN_bounds)
-    states = state_type[]
-    QNs = [QN for QN ∈ fieldnames(state_type) if QN ∉ (:E, :constraints)]
-    
-    # Define a state with all QN = 0 to get the constraints for the QNs
-    η = NamedTuple([QN => 0 for QN in QNs])
-    
-    enumerate_states(η, states, state_type, QNs, QN_bounds, 1)
-
-    return states
-end
-
-function enumerate_states(η, states, state_type, QNs, QN_bounds, idx, max_states=1000)
-
-    if length(states) > max_states
-        return false
-    end
-
-    if idx == length(QNs) + 1
-        new_state = state_type(; η...)
-        push!(states, new_state)
-        return nothing
-    end
-    
-    # Check if quantum number has been given bounds; else apply constraints
-    iterated_QN = QNs[idx]
-    QN_constraints = state_type(; η...).constraints
-
-    if iterated_QN ∈ keys(QN_constraints)
-        QN_constraint = QN_constraints[iterated_QN]
-        QN_constraint_bounds = eval(QN_constraint)
-    end
-    
-    if iterated_QN ∈ keys(QN_bounds)
-        bounds = QN_bounds[iterated_QN]
-        for i ∈ bounds
-            if iterated_QN ∉ keys(QN_constraints) || (i ∈ QN_constraint_bounds)
-                η′ = (; η..., iterated_QN => i)
-                enumerate_states(η′, states, state_type, QNs, QN_bounds, idx + 1)
-            end
-        end
-    elseif iterated_QN ∈ keys(QN_constraints)
-        for i ∈ QN_constraint_bounds
-            η′ = (; η..., iterated_QN => i)
-            enumerate_states(η′, states, state_type, QNs, QN_bounds, idx + 1)
-        end
-    else
-        enumerate_states(η, states, state_type, QNs, QN_bounds, idx + 1)
-    end
-    
-    return nothing
-end
-export enumerate_states
-
-# function enumerate_states(η, QNs, states, state_type, QN_bounds, idx, max_states=1000)
-
-#     if length(states) > max_states
-#         return false
-#     end
-
-#     return_val = true
-#     try
-#         new_state = state_type(; η...)
-#         return_val = true
-#     catch
-#         return_val = false
-#     end
-
-#     if idx == length(QNs) + 1
-#         # new_state = state_type(; η...)
-#         try
-#             new_state = state_type(; η...)
-#             push!(states, new_state)
-#             return true
-#         catch
+# import Base.==
+# function ==(state::State, state′::State)
+#     state_type = typeof(state)
+#     for field in fieldnames(state_type)
+#         if getfield(state, field) != getfield(state′, field)
 #             return false
 #         end
 #     end
-    
-#     # Check if quantum number has been given bounds
-#     iterated_QN = QNs[idx]
-#     QN_bounded = false
-#     if iterated_QN in keys(QN_bounds)
-#         QN_bounded = true
-#         bounds = QN_bounds[iterated_QN]
-#         if η[iterated_QN] ∉ bounds
-#             η = (; η..., iterated_QN => bounds[1])
-#         end
-#     end
-            
-#     i = η[iterated_QN] + 1
-#     keep_iterating = true
-#     # while keep_iterating && ((!QN_bounded) || (QN_bounds[iterated_QN][1] <= i <= QN_bounds[iterated_QN][2]))
-#     while keep_iterating && ((!QN_bounded) || (i ∈ bounds))
-#         η′ = (; η..., iterated_QN => i)
-# #         println(η′)
-# #         println(iterated_QN, i)
-#         keep_iterating = enumerate_states(η′, QNs, states, state_type, QN_bounds, idx + 1, max_states)
-#         i += 1
-#     end
-    
-#     i = η[iterated_QN] - 1
-#     keep_iterating = true
-#     # while keep_iterating && ((!QN_bounded) || (QN_bounds[iterated_QN][1] <= i <= QN_bounds[iterated_QN][2]))
-#     while keep_iterating && ((!QN_bounded) || (i ∈ bounds))
-#         η′ = (; η..., iterated_QN => i)
-# #         println(η′)
-# #         println(iterated_QN, i)
-#         keep_iterating = enumerate_states(η′, QNs, states, state_type, QN_bounds, idx + 1, max_states)
-#         i -= 1
-#     end
-    
-#     return return_val
+#     return true
 # end
-# export enumerate_states
-
-import Base.==
-function ==(state::State, state′::State)
-    state_type = typeof(state)
-    for field in fieldnames(state_type)
-        if getfield(state, field) != getfield(state′, field)
-            return false
-        end
-    end
-    return true
-end
-
-function ==(state::BasisState, state′::BasisState)
-    state_type = typeof(state)
-    for field in fieldnames(state_type)
-        if getfield(state, field) != getfield(state′, field)
-            return false
-        end
-    end
-    return true
-end
-
-export ==
+# export ==
 
 function DiagonalOperator(state::BasisState, state′::BasisState)
     if state == state′
