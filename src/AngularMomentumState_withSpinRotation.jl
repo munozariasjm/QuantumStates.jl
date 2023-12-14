@@ -76,7 +76,7 @@ function TDM_magnetic(state::AngularMomentumState_withSpinRotation, state′::An
 end
 # TDM_magnetic(state::State, state′::State, p::Int64) = extend_operator(TDM_magnetic, state, state′, p)
 
-function d(state::AngularMomentumState_withSpinRotation, state′::AngularMomentumState_withSpinRotation, p)
+function d_moment(state::AngularMomentumState_withSpinRotation, state′::AngularMomentumState_withSpinRotation, p)
     J,  N,  S,  M  = unpack(state)
     J′, N′, S′, M′ = unpack(state′)
     return (
@@ -85,9 +85,9 @@ function d(state::AngularMomentumState_withSpinRotation, state′::AngularMoment
         * sqrt( (2N + 1) * (2N′ + 1) ) * wigner3j(N, 1, N′, 0, 0, 0)
     )
 end
-d⁰(state::AngularMomentumState_withSpinRotation, state′::AngularMomentumState_withSpinRotation) = d(state, state′, 0)
-d⁺(state::AngularMomentumState_withSpinRotation, state′::AngularMomentumState_withSpinRotation) = d(state, state′, +1)
-d⁻(state::AngularMomentumState_withSpinRotation, state′::AngularMomentumState_withSpinRotation) = d(state, state′, -1)
+d⁰(state::AngularMomentumState_withSpinRotation, state′::AngularMomentumState_withSpinRotation) = d_moment(state, state′, 0)
+d⁺(state::AngularMomentumState_withSpinRotation, state′::AngularMomentumState_withSpinRotation) = d_moment(state, state′, +1)
+d⁻(state::AngularMomentumState_withSpinRotation, state′::AngularMomentumState_withSpinRotation) = d_moment(state, state′, -1)
 export d⁰, d⁺, d⁻
 
 function SplitMStates(state::AngularMomentumState_withSpinRotation, state′::AngularMomentumState_withSpinRotation)

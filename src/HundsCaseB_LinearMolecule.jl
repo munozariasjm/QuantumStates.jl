@@ -299,8 +299,8 @@ TDM(state, state′) = sum(TDM(state, state′, p) for p ∈ -1:1)
 TDM(state, state′) = extend_operator(TDM, state, state′, p)
 export TDM
 
-d(state, state′) = extend_operator(TDM, state, state′, 0)
-export d
+# d(state, state′) = extend_operator(TDM, state, state′, 0)
+# export d
 
 function 𝒫(K,P,ϵ)
     val = 0.0

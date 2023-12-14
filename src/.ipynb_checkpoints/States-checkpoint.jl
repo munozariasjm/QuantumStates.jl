@@ -247,24 +247,6 @@ function tdms_between_states!(d::Array{ComplexF64, 3}, basis_tdms::Array{Complex
 end
 export tdms_between_states!
 
-function tdms_between_states(states::Vector{<:State}, states′::Vector{<:State})
-    d = zeros(ComplexF64, length(states), length(states′), 3)
-    for i ∈ eachindex(states), j ∈ eachindex(states′)
-        state  = states[i]
-        state′ = states′[j]
-        basis  = state.basis
-        basis′ = state′.basis
-        for p ∈ -1:1
-            d[i,j,p+2] = 0.0
-            for m ∈ eachindex(basis), n ∈ eachindex(basis′)
-                d[i,j,p+2] += conj(state.coeffs[m]) * state′.coeffs[n] * TDM(basis[m], basis′[n], p)
-            end
-        end
-    end
-    return d
-end
-export tdms_between_states
-
 macro params(arg)
     dict = Dict{Symbol, Float64}()
     for x in arg.args
@@ -277,13 +259,6 @@ macro params(arg)
     return ParameterList(dict)
 end
 export @params
-
-using MutableNamedTuples
-
-macro params_mnt(ex)
-    Expr(:call, :MutableNamedTuple, (:($(Expr(:kw, Symbol(arg.args[1]), arg.args[2]))) for arg in ex.args if arg isa Expr)...)
-end
-export @params_mnt
 
 import Base: getproperty
 function getproperty(p::ParameterList, s::Symbol)
@@ -500,6 +475,11 @@ function extend_operator(operator::T, state::State, state′::State, args...) wh
     for (i, basis_state) in enumerate(state.basis)
         for (j, basis_state′) in enumerate(state′.basis)
             val += conj(state.coeffs[i]) * state′.coeffs[j] * operator(basis_state, basis_state′, args...)
+            # coeff1 = state.coeffs[i]
+            # coeff2 = state′.coeffs[i]
+            # if (norm(coeff1)^2 > 1e-5) && (norm(coeff1)^2 > 1e-5)
+                # val += state.coeffs[i] * state′.coeffs[j] * operator(basis_state, basis_state′, args...)
+            # end
         end
     end
     return val

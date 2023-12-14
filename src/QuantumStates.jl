@@ -24,6 +24,7 @@ include("AngularMomentumState_withSpinRotation_Uncoupled.jl")
 include("AsymmetricTopMolecule.jl")
 include("HarmonicOscillatorState.jl")
 include("HarmonicOscillatorState_3D.jl")
+include("AtomicState.jl")
 
 include("StateOverlaps.jl")
 
