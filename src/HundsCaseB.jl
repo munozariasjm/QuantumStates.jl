@@ -329,7 +329,7 @@ function TDM(state::HundsCaseB, state′::HundsCaseB, p::Int64)
         * (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J, F, I, F′, J′, 1)
         * (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) ) * wigner6j(N, J, S, J′, N′, 1)
         * (-1)^(N - Λ) * sqrt( (2N + 1) * (2N′ + 1) ) * sum(wigner3j(N, 1, N′, -Λ, q, Λ′) for q ∈ -1:1)
-    )``
+    )
 end
 TDM(state::HundsCaseB, state′::HundsCaseB) = sum(TDM(state, state′, p) for p ∈ -1:1)
 TDM(state, state′, p) = extend_operator(TDM, state, state′, p)
