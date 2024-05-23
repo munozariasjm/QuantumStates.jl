@@ -95,14 +95,3 @@ function transitions_table(transitions::Vector{Transition}, relabelling_states=n
     return df_transitions
 end
 export transitions_table
-
-function calculate_state_overlaps!(states, states′, overlaps)
-    for i ∈ eachindex(states)
-        for j ∈ eachindex(states′)
-            state = states[i]
-            state′ = states′[j]
-            overlaps[i,j] = norm(state ⋅ state′)
-        end
-    end
-    return nothing
-end  

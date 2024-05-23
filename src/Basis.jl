@@ -2,6 +2,32 @@ abstract type BasisState end
 export BasisState
 
 """
+
+"""
+function delta(state, state′, QNs...)
+    for QN ∈ QNs
+        if ~(getproperty(state, QN) == getproperty(state′, QN))
+            return false
+        end
+    end
+    return true
+end
+export delta
+
+"""
+
+"""
+macro delta(state, state′, QNs)
+    for QN ∈ QNs.args
+        if ~(getproperty(state, QN) == getproperty(state′, QN))
+            return false
+        end
+    end
+    return true
+end
+export delta
+
+"""
     Two basis states are equal if all quantum numbers are the same.
 """
 # function ==(state::BasisState, state′::BasisState)
@@ -17,12 +43,16 @@ export BasisState
 
 function enumerate_states(state_type, QN_bounds)
     states = state_type[]
-    QNs = [QN for QN ∈ fieldnames(state_type) if QN ∉ (:E, :constraints)]
+    QNs = [QN for QN ∈ fieldnames(state_type) if QN ∉ (:E, :label, :constraints)]
     
     # Define a state with all QN = 0 to get the constraints for the QNs
     η = NamedTuple([QN => 0 for QN in QNs])
-    
-    enumerate_states(η, states, state_type, QNs, QN_bounds, 1)
+
+    if :label ∈ keys(QN_bounds)
+        η = (; label = QN_bounds[:label], η...)
+    end
+
+    enumerate_states(η, states, state_type, QNs, QN_bounds, 2)
 
     return states
 end

@@ -217,6 +217,8 @@ function Zeeman(state::HundsCaseB, state′::HundsCaseB, p::Int64)
     end
 end
 export Zeeman
+Zeeman_z(state, state′) = Zeeman(state, state′, 0)
+export Zeeman_z
 
 function Zeeman_NB(state::HundsCaseB, state′::HundsCaseB)
     # Hirota, equation (2.5.16) and (2.5.18)
@@ -335,8 +337,8 @@ TDM(state::HundsCaseB, state′::HundsCaseB) = sum(TDM(state, state′, p) for p
 TDM(state, state′, p) = extend_operator(TDM, state, state′, p)
 export TDM
 
-d(state, state′) = extend_operator(TDM, state, state′, 0)
-export d
+# d(state, state′) = extend_operator(TDM, state, state′, 0)
+# export d
 
 function 𝒫(K,P,ϵ)
     val = 0.0

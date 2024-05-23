@@ -52,8 +52,47 @@ function CombinedHamiltonian(H1, H2)
         basis_tdms′
     )
 end
-
 export CombinedHamiltonian
+
+"""
+    Combines a list of Hamiltonians into a single Hamiltonian object.
+"""
+mutable struct CombinedHamiltonian_Multiple{T<:BasisState, F}
+    Hs::Vector{Hamiltonian{T}}
+    basis::Vector{T}
+    operator::Expr
+    parameters::ParameterList
+    states::Vector{State{T}}
+    operators::F
+    matrix::Matrix{ComplexF64}
+    tdms::Array{ComplexF64, 3}
+    basis_tdms::Array{ComplexF64}
+end
+export CombinedHamiltonian_Multiple
+
+function CombinedHamiltonian_Multiple(Hs)
+    Hs′ = [deepcopy(H) for H ∈ Hs]
+    basis′ = vcat((H.basis for H ∈ Hs′)...)
+    operator′ = Expr(:nothing)
+    parameters′ = ParameterList(Dict{Symbol, Float64}())
+    states′ = vcat((convert_basis(H.states, basis′) for H ∈ Hs′)...)
+    operators′ = unpack_operator(operator′, basis′)
+    matrix′ = create_block_diagonal_matrix((H.matrix for H ∈ Hs′))
+    tdms′ = zeros(ComplexF64, length(states′), length(states′), 3)
+    basis_tdms′ = zeros(ComplexF64, length(states′), length(states′), 3)
+    CombinedHamiltonian_Multiple(
+        Hs′,
+        basis′,
+        operator′,
+        parameters′,
+        states′,
+        operators′,
+        matrix′,
+        tdms′,
+        basis_tdms′
+    )
+end
+export CombinedHamiltonian_Multiple
 
 function change_of_basis_matrix(basis, basis′)
     P = zeros(ComplexF64, length(basis), length(basis′))
@@ -64,6 +103,7 @@ function change_of_basis_matrix(basis, basis′)
     end
     return P
 end
+export change_of_basis_matrix
 
 function convert_basis(H::Hamiltonian, basis′)
 
@@ -121,7 +161,11 @@ export extend_basis!
 #     Hamiltonian(basis=combined_basis, operator=H₁.operator, parameters=H₁.parameters)
 # end
 
-subspace(H::Hamiltonian, QN_bounds) = Hamiltonian(basis=H.basis, operator=H.operator, parameters=H.parameters, states=subspace(H.states, QN_bounds)[2])
+function subspace(H::Hamiltonian, QN_bounds)
+    H_sub = Hamiltonian(basis=H.basis, operator=H.operator, parameters=H.parameters, states=subspace(H.states, QN_bounds)[2])
+    reduce_basis!(H_sub)
+    return H_sub
+end
 export subspace
 # subspace(H::Hamiltonian, basis_idxs) = Hamiltonian(H.basis[basis_idxs], H.operator, H.parameters)
 
@@ -240,6 +284,27 @@ function add_to_H(H::CombinedHamiltonian, param::Symbol, f::Function)
 end
 export add_to_H
 
+function add_to_H(H::CombinedHamiltonian_Multiple, param::Symbol, f::Function)
+    operator = Expr(:call, :+, H.operator, f)
+    matrix = matrix_from_operator(H.basis, f)
+    param_dict = Dict(H.parameters.param_dict..., param => 0.0) # any new term added has its parameter value set to zero as default
+    parameters = ParameterList(param_dict)
+    operators = (; H.operators..., param => Operator(param, f, matrix))
+
+    return CombinedHamiltonian_Multiple(
+        H.Hs,
+        H.basis,
+        operator,
+        parameters,
+        H.states,
+        operators,
+        H.matrix,
+        H.tdms,
+        H.basis_tdms
+    )
+end
+export add_to_H
+
 # function +(H, O::Operator)
 #     H.operator = Expr(:call, :+, H.operator, O)
 #     H.parameters.param_dict[O.param] = 0.0 # any new term added has its parameter value set to zero as default
@@ -313,6 +378,26 @@ function evaluate!(H::CombinedHamiltonian)
     m = length(H.H2.states)
     H.matrix[1:n, 1:n] .+= H.H1.matrix
     H.matrix[(n+1):(n+m), (n+1):(n+m)] .+= H.H2.matrix
+    return nothing
+end
+export evaluate!
+
+function evaluate!(H::CombinedHamiltonian_Multiple)
+    H.matrix .= 0.0
+    if length(H.operators) > 0
+        sum_operator_matrices!(H, Val(length(H.operators)))
+    end
+    for i ∈ eachindex(H.Hs)
+        evaluate!(H.Hs[i])
+    end
+    ns = (size(H_i.matrix,1) for H_i ∈ H.Hs) # sizes of matrices
+    idx1 = 1
+    idx2 = 0
+    for (n, H_i) ∈ zip(ns, H.Hs)
+        idx2 += n
+        H.matrix[idx1:idx2,idx1:idx2] .+= H_i.matrix
+        idx1 += n
+    end
     return nothing
 end
 export evaluate!
@@ -521,12 +606,9 @@ function scan_parameters(H, scan_values::T, iterator::F1, H_func!::F2, output_fu
     scan_iterator = iterator(scan_values...)
     
     n_values = length(scan_iterator)
-    # saved_values = zeros(n_values, length(H.states))
+    n_params = length(first(scan_iterator))
 
     output_type = typeof(output_func(H))
-
-    n_params = length(first(scan_iterator))
-    # print(n_params)
 
     prog_bar = Progress(n_values)
 
@@ -534,17 +616,12 @@ function scan_parameters(H, scan_values::T, iterator::F1, H_func!::F2, output_fu
     batch_size = cld(n_values, n_threads)
     remainder = n_values - batch_size * n_threads
     partitions = Iterators.partition(scan_iterator, batch_size)
-    # println(length.(partitions))
 
-    # full_dict = Dict{NTuple{n_params, Float64}, output_type}()
-
-    # print(length(partitions))
     tasks = Vector{Task}(undef, n_threads)
 
     H_copy = deepcopy(H)
-    H_func!(H_copy, scan_values[1])
 
-    @sync for (i, scan_values) ∈ enumerate(partitions)
+    @sync for (i, scan_values_partition) ∈ enumerate(partitions)
 
         _H = deepcopy(H_copy)
         tracked_idxs = collect(1:length(_H.states))
@@ -555,12 +632,8 @@ function scan_parameters(H, scan_values::T, iterator::F1, H_func!::F2, output_fu
         state_idxs = collect(1:length(_H.states))
 
         @async tasks[i] = Threads.@spawn begin
-        # _batch_size = i <= remainder ? (batch_size + 1) : batch_size - 1
-        # batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
-        # for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
-            for scan_value ∈ scan_values
+            for scan_value ∈ scan_values_partition
                 H_func!(_H, scan_value)
-                # if j != 1
                 calculate_state_overlaps!(_H.states, prev_states, overlaps)
                 tracked_idxs!(overlaps, _H.states, prev_states, tracked_idxs)
                 _H.states .= _H.states[tracked_idxs]
@@ -744,3 +817,37 @@ export load_from_file
 #     return subspace
 # end
 # export subspace
+
+"""
+    Function to reduce a basis 
+"""
+function reduce_basis!(H)
+
+    basis_states_to_keep = zeros(Bool, length(H.basis))
+    for i ∈ eachindex(H.states)
+        state = H.states[i]
+        for j ∈ eachindex(state.coeffs)
+            if norm(state.coeffs[j]) > 1e-3
+                basis_states_to_keep[j] = true
+            end
+        end
+    end
+    basis′ = H.basis[basis_states_to_keep]
+    for state ∈ H.states
+        state.basis = basis′
+    end
+    H.basis = basis′
+
+    for i ∈ eachindex(H.states)
+        H.states[i].basis = basis′ # is this necessary
+        H.states[i].coeffs = H.states[i].coeffs[basis_states_to_keep]
+    end
+    H.matrix = H.matrix[basis_states_to_keep,basis_states_to_keep]
+    for i ∈ eachindex(H.operators)
+        H.operators[i].matrix = H.operators[i].matrix[basis_states_to_keep,basis_states_to_keep]
+    end
+
+    return nothing
+end
+
+export reduce_basis!

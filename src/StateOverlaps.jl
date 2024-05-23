@@ -77,3 +77,12 @@ function Parity(state::State{<:HundsCaseB})
     return -(-1)^(N-abs(Λ)) * (-1)^(sign1 == sign2)
 end
 export Parity
+
+# Added 5/2/24
+function overlap(state::HundsCaseB_LinearMolecule, state′::HundsCaseA_LinearMolecule)
+    # See Hirota eq. (2.3.3)
+    S,  I,  ℓ, Λ, K, N, J, F, M = state.S, state.I, state.ℓ, state.Λ, state.K, state.N, state.J, state.F, state.M
+    S′, I′, ℓ′, Λ′, Σ, P, K′, J′, F′, M′ = state′.S, state′.I, state′.ℓ, state′.Λ, state′.Σ, state′.P, state′.K, state′.J, state′.F, state′.M
+    return (-1)^(-J + P + 2S) * sqrt(2N + 1) * wigner3j(J, N, S, P, -K, -Σ) * δ(J,J′) * δ(F,F′) * δ(M,M′) * δ(ℓ,ℓ′) * δ(Λ,Λ′)
+end
+overlap(state::HundsCaseA_LinearMolecule, state′::HundsCaseB_LinearMolecule) = overlap(state′, state)

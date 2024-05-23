@@ -168,7 +168,7 @@ struct ParameterList
 end
 export ParameterList
 
-struct Operator{F}
+mutable struct Operator{F}
     param::Symbol
     operator::F
     matrix::Matrix{ComplexF64}
@@ -182,6 +182,20 @@ function create_block_diagonal_matrix(m1, m2)
     block_m[1:n, 1:n] .= m1
     block_m[(n+1):(n+m), (n+1):(n+m)] .= m2
     return block_m
+end
+export create_block_diagonal_matrix
+
+function create_block_diagonal_matrix(ms)
+    ns = (size(m,1) for m ∈ ms) # sizes of matrices
+    block_matrix = zeros(ComplexF64, sum(ns), sum(ns))
+    idx1 = 1
+    idx2 = 0
+    for (n,m) ∈ zip(ns,ms)
+        idx2 += n
+        block_matrix[idx1:idx2,idx1:idx2] .= m
+        idx1 += n
+    end
+    return block_matrix
 end
 export create_block_diagonal_matrix
 
@@ -409,6 +423,18 @@ function DiagonalOperator(state::BasisState, state′::BasisState)
 end
 export DiagonalOperator
 
+function calculate_state_overlaps!(states, states′, overlaps)
+    for i ∈ eachindex(states)
+        for j ∈ eachindex(states′)
+            state = states[i]
+            state′ = states′[j]
+            overlaps[i,j] = norm(state ⋅ state′)
+        end
+    end
+    return nothing
+end
+export calculate_state_overlaps!
+
 function calculate_state_overlaps(states, states′)
     overlaps = zeros(Float64, length(states), length(states))
     calculate_state_overlaps!(states, states′, overlaps)
@@ -535,11 +561,16 @@ function convert_basis(states::Vector{State{T}}, basis′) where {T}
         end
     end
 
+    # for state ∈ states
+    #     new_state = State(state.E, basis′, P * state.coeffs, state.idx)
+    #     push!(new_states, new_state)
+    # end
     for state ∈ states
         new_state = State(state.E, basis′, P * state.coeffs, state.idx)
         push!(new_states, new_state)
     end
-    
+
+
 #     # Check that the basis provided included all necessary states to make the conversion
 #     for state in new_states
 #         if norm(state.coeffs) 
