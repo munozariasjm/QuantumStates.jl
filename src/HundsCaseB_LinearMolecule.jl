@@ -229,10 +229,10 @@ function Zeeman(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMol
     if ~delta(state, state′, :ℓ, :Λ, :K, :N)
         return 0.0
     else
-        return -(
+        return (
                   (-1)^p * (-1)^(F - M) * wigner3j(F, 1, F′, -M, p, M′)
-                * (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J, F, I, F′, J′, 1)
-                * (-1)^(N′ + S + J + 1) * sqrt( (2J + 1) * (2J′ + 1) * S * (S + 1) * (2S + 1) ) * wigner6j(S, J, N′, J′, S, 1)
+                * (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J′, F′, I, F, J, 1)
+                * (-1)^(S + N + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) * S * (S + 1) * (2S + 1) ) * wigner6j(S, J′, N, J, S, 1)
         )
     end
 end
@@ -295,8 +295,8 @@ export TDM_magnetic
 function TDM_vibrational(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule, p::Int64)
     v_1,  v_2,  v_3,  S,  I,  Λ,  ℓ,  K,  N,  J,  F,  M  = unpack(state)
     v_1′, v_2′, v_3′, S′, I′, Λ′, ℓ′, K′, N′, J′, F′, M′ = unpack(state′)
-    return - (
-        (-1)^p * (-1)^(F - M) * wigner3j(F, 1, F′, -M, p, M′)
+    return (
+        - (-1)^p * (-1)^(F - M) * wigner3j(F, 1, F′, -M, p, M′)
         * (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J, F, I, F′, J′, 1)
         * (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) ) * wigner6j(N, J, S, J′, N′, 1)
         * (-1)^(N - K) * sqrt( (2N + 1) * (2N′ + 1) ) * sum(wigner3j(N, 1, N′, -K, q, K′) for q ∈ -1:1)
@@ -310,9 +310,9 @@ function TDM(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecu
         return 0.0
     else
         return (
-            -(-1)^p * (-1)^(F - M) * wigner3j(F, 1, F′, -M, p, M′)
-            * (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J, F, I, F′, J′, 1)
-            * (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) ) * wigner6j(N, J, S, J′, N′, 1)
+            - (-1)^p * (-1)^(F - M) * wigner3j(F, 1, F′, -M, p, M′)
+            * (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J′, F′, I, F, J, 1)
+            * (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) ) * wigner6j(N′, J′, S, J, N, 1)
             * (-1)^(N - K) * sqrt( (2N + 1) * (2N′ + 1) ) * sum(wigner3j(N, 1, N′, -K, q, K′) for q ∈ -1:1)
         )
     end
@@ -408,3 +408,5 @@ function basis_splitting(state, state′)
     return state.M * (state == state′)
 end
 export basis_splitting
+
+# function Parity(state, state′)
