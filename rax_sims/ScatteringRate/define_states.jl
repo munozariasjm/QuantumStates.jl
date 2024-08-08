@@ -121,35 +121,21 @@ function define_YbF_states(B)
     A_state_ham = Hamiltonian(basis=A_state_basis, operator=A_state_operator, parameters=A_state_parameters)
     evaluate!(A_state_ham)
     QuantumStates.solve!(A_state_ham)
-    A_state_J12_pos_parity_states = A_state_ham.states#[5:8]
+    A_state_J12_pos_parity_states = A_state_ham.states[5:8]
 
     # Define quantum number bounds for the A state in Hund's case (b)
     QN_bounds = (
-        S=1 / 2,            # Electron spin quantum number
-        I=1 / 2,            # Nuclear spin quantum number
-        Λ=(-1, 1),         # Projection of electronic orbital angular momentum (with possible values -1 and 1)
-        N=0:3             # Rotational quantum number range
+        S=1 / 2,
+        I=1 / 2,
+        Λ=(-1, 1),
+        N=0:3 # ?
     )
-
-    # Enumerate states for the A state basis in Hund's case (b)
     A_state_caseB_basis = enumerate_states(HundsCaseB_LinearMolecule, QN_bounds)
 
-    # Select the ground state solutions from the Hamiltonian
-    # Note: This is dropping all the terms with N = 0. (We only want N = 1)
-    ground_states = [state for state in X_state_ham.states if get_max_coeff_basis_element(state).N == 1]
-
-    # Convert the excited states to Hund's case (b) basis
+    ground_states = X_state_ham.states[5:16] # This is dropping all the terms with N = 0
     excited_states = convert_basis(A_state_J12_pos_parity_states, A_state_caseB_basis)
-    excited_states = [state for state in excited_states if get_J_quantum_number(state) == 1 / 2][1:4]
 
-    # Combine ground and excited states
     states = [ground_states; excited_states]
-    n_excited = length(excited_states)
-    @show n_excited
-
-    for state ∈ states
-        state.E *= 1e6
-    end
 
     return ground_states, excited_states
 
