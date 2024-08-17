@@ -98,6 +98,32 @@ function enumerate_states(η, states, state_type, QNs, QN_bounds, idx, max_state
 end
 export enumerate_states
 
+function order_basis_by_m(basis)
+
+    new_ordering = zeros(Int64, length(basis))
+
+    # find the maximum value |M|
+    m_max = 0
+    for i ∈ eachindex(basis)
+        if abs(basis[i].M) > m_max
+            m_max = abs(basis[i].M)
+        end
+    end
+
+    i = 1
+    for m ∈ -m_max:m_max
+        for j ∈ eachindex(basis)
+            if basis[j].M == m
+                new_ordering[i] = j
+                i += 1
+            end
+        end
+    end
+
+    return basis[new_ordering]
+end
+export order_basis_by_m
+
 # Need to redefine so that this is type-stable...
 # function enumerate_states(state_type, QN_bounds1, QN_bounds2)
 #     basis_states1 = enumerate_states(state_type.types[1], QN_bounds1)

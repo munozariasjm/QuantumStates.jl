@@ -106,9 +106,9 @@ function SpinRotation(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_Lin
         return 0.0
     else
         return (
-                (1/2) * (-1)^(J + S + N) * (-1)^(N - K) 
+                (1/2) * (-1)^(J′ + S + N) * (-1)^(N - K) 
                 * sqrt( S * (S + 1) * (2S + 1) * (2N + 1) * (2N′ + 1) ) 
-                * wigner6j(N′, S ,J, S, N, 1)
+                * wigner6j(N′, S ,J′, S, N, 1)
                 * sum( sqrt(2k + 1)
                 * (
                     (-1)^k *
@@ -214,8 +214,8 @@ function Stark(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMole
     else
         return (
                 - (-1)^(F - M) * wigner3j(F, 1, F′, -M, 0, M′)
-                * (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J, F, I, F′, J′, 1)
-                * (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) ) * wigner6j(N, J, S, J′, N′, 1)
+                * (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J′, F′, I, F, J, 1)
+                * (-1)^(N + S + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) ) * wigner6j(N′, J′, S, J, N, 1)
                 * (-1)^(N - K) * sqrt( (2N + 1) * (2N′ + 1) ) * wigner3j(N, 1, N′, -K, 0, K′) 
         )
     end
@@ -232,7 +232,7 @@ function Zeeman(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMol
         return (
                   (-1)^p * (-1)^(F - M) * wigner3j(F, 1, F′, -M, p, M′)
                 * (-1)^(J + I + F′ + 1) * sqrt( (2F + 1) * (2F′ + 1) ) * wigner6j(J′, F′, I, F, J, 1)
-                * (-1)^(S + N + J′ + 1) * sqrt( (2J + 1) * (2J′ + 1) * S * (S + 1) * (2S + 1) ) * wigner6j(S, J′, N, J, S, 1)
+                * (-1)^(S + N′ + J + 1) * sqrt( (2J + 1) * (2J′ + 1) * S * (S + 1) * (2S + 1) ) * wigner6j(S, J′, N, J, S, 1)
         )
     end
 end

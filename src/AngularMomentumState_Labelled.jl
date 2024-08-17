@@ -5,8 +5,8 @@ using HalfIntegers
 
 Base.@kwdef mutable struct AngularMomentumState_Labelled <: BasisState
     E::Float64 = 0.0
-    label=""
-    F::HalfInt = 0.0
+    L::Float64 = 0.0
+    N::HalfInt = 0.0
     M::HalfInt = 0.0
     constraints = (
         M = -N:N,
@@ -15,14 +15,14 @@ end
 export AngularMomentumState_Labelled
 
 function unpack(state::AngularMomentumState_Labelled)
-    return (state.label, state.F, state.M)
+    return (state.L, state.N, state.M)
 end
 export unpack
 
 function L(state::AngularMomentumState_Labelled, state′::AngularMomentumState_Labelled)
-    label, F,  M  = unpack(state)
-    label, F′, M′ = unpack(state′)
-    return δ(L, L′) * δ(F, F′) * δ(M, M′) * L
+    L,  N,  M  = unpack(state)
+    L′, N′, M′ = unpack(state′)
+    return δ(L, L′) * δ(N, N′) * δ(M, M′) * L
 end
 
 function Identity(state::AngularMomentumState_Labelled, state′::AngularMomentumState_Labelled)

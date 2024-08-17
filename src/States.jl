@@ -12,7 +12,7 @@ using LinearAlgebra
 using LoopVectorization
 using NamedTupleTools
 
-import ProgressMeter: Progress, next!
+import ProgressMeter: Progress, next!, update!
 
 mutable struct State{T<:BasisState}
     E::Float64
@@ -103,7 +103,9 @@ end
 #     return
 
 function states_table(states::Vector{<:State}; threshold=1e-3, dominant_state_only=false)
-    QNs = fieldnames(typeof(states[1].basis[1]))[2:end-1]
+    QNs = fieldnames(typeof(states[1].basis[1]))[3:end-1]
+    # QN_types = [typeof(getfield(states[1].basis[1], QN)) for QN ∈ QNs]
+    # QN_columns = NamedTuple(QN => QN_types[i][] for (i,QN) ∈ enumerate(QNs))
     QN_columns = NamedTuple(QN => Rational{Int64}[] for QN in QNs)
     all_columns = merge((State = Integer[], c = Float64[],), QN_columns, (E = Float64[],))
     df = DataFrame(all_columns)
@@ -484,6 +486,8 @@ function subspace(states::Vector{State{T}}, QN_bounds, threshold=0.01) where {T}
     for QN ∈ QNs
         for (i, state) ∈ enumerate(states)
             for (j, coeff) ∈ enumerate(state.coeffs)
+                # println(getfield(state.basis[j], QN))
+                # println(QN_bounds[QN])
                 if getfield(state.basis[j], QN) ∉ QN_bounds[QN]
                     if norm(coeff)^2 > threshold
                         add_to_subspace[i] = false

@@ -42,12 +42,12 @@ function Rotation(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearM
     v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
     v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
     term1 = (J * (J + 1) + S * (S + 1) - 2 * P * Σ - K^2) * δ(Σ,Σ′) * δ(P,P′) # diagonal term
-    term2 = (
+    term2 = ( # spin uncoupling
         - 2 * (-1)^(J - P + S - Σ) * 
             sqrt(J * (J + 1) * (2J + 1) * S * (S + 1) * (2S + 1)) * 
             sum(
-                wigner3j_(J, 1, J, -P, q, P′) *
-                wigner3j_(S, 1, S, -Σ, q, Σ′)
+                wigner3j(J, 1, J, -P, q, P′) *
+                wigner3j(S, 1, S, -Σ, q, Σ′)
                 for q ∈ (-1,1)
             )
     )
@@ -163,17 +163,19 @@ end
         
 function Hyperfine_IL(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)
     # Brown and Carrington, eq. (8.372)
+    # Hirota, eq. (2.3.66)
     # Orbital hyperfine interaction
+    # Only the term diagonal in q is retained here
     v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
     v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
-    if ~δ(Σ,Σ′) || ~δ(M,M′) || ~δ(F,F′) || ~δ(Λ,Λ′) || ~δ(ℓ,ℓ′)
+    if ~delta(state, state′, :ℓ, :Σ, :Λ, :K, :Σ, :P, :F, :M)
         return 0.0
     else
         return (
-            Λ * (-1)^(J′ + I + F + J - P) * 
+            Λ′ * (-1)^(I + J + F′) * (-1)^(J - P) * 
             sqrt(I * (I + 1) * (2I + 1) * (2J + 1) * (2J′ + 1)) *
-            wigner6j_(I, J′, F, J, I, 1) * 
-            wigner3j_(J, 1, J′, -P, 0, P′)
+            wigner6j(I, J, F′, J′, I, 1) * 
+            wigner3j(J, 1, J′, -P, 0, P′)
         )
     end
 end
@@ -181,18 +183,19 @@ export Hyperfine_IL
 
 function Hyperfine_IF(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)
     # Fermi contact interaction
+    # Hirota, eq. (2.3.67)
     v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
     v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
-    if ~δ(M,M′) || ~δ(F,F′) || ~δ(Λ,Λ′) || ~δ(ℓ,ℓ′)
+    if ~delta(state, state′, :ℓ, :F, :M)
         return 0.0
     else
         return (
-            (-1)^(I + J′ + F + S - Σ + J - P) * 
+            (-1)^(I + J + F′) * (-1)^(S - Σ) * (-1)^(J - P) * 
             sqrt(I * (I + 1) * (2I + 1) * (2J + 1) * (2J′ + 1) * S * (S + 1) * (2S + 1)) *
-            wigner6j_(I, J′, F, J, I, 1) *
+            wigner6j(I, J, F′, J′, I, 1) *
             sum(
-                wigner3j_(J, 1, J′, -P, q, P′) *
-                wigner3j_(S, 1, S, -Σ, q, Σ′)
+                wigner3j(J, 1, J′, -P, q, P′) *
+                wigner3j(S, 1, S, -Σ, q, Σ′)
                 for q ∈ -1:1
             )
         )
@@ -275,64 +278,77 @@ function basis_splitting(state, state′)
 end
 export basis_splitting
 
-# function Zeeman_L(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)
-#     """
-#     Electron orbit Zeeman
-#     """
-#     I,  S,  Λ,  J,  P,  Σ,  F,  M  = unpack(state)
-#     I′, S′, Λ′, J′, P′, Σ′, F′, M′ = unpack(state′)
+function Zeeman_L(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule, p::Int64)
+    """
+    Electron orbital Zeeman interaction
+    See Brown & Carrington, eq. (9.57)
+    """
+    v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
+    v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
 
-#     if ~δ(P,P′) || ~δ(Σ,Σ′) || ~δ(Λ,Λ′) || ~δ(M,M′) || ~δ(S,S′) || ~δ(I,I′)
-#         return 0.0
-#     else
-#         return (
-#             Λ * (-1)^(F-M+F′+J+I+1+J-P) * wigner6j(J,F,I,F′,J′,1) * 
-#             wigner3j(F,1,F′,-M,0,M) * sqrt((2F+1)*(2F′+1)*(2J+1)*(2J′+1)) * 
-#             wigner3j(J,1,J′,-P,0,P)
-#         )
-#     end
-# end
+    if ~delta(state, state′, :ℓ, :Λ, :K, :I, :S, :Σ, :P)
+        return 0.0
+    else
+        return (
+            (-1)^p * Λ * (-1)^(F-M+F′+J+I+1+J-P) * wigner6j(J,F,I,F′,J′,1) * 
+            wigner3j(F,1,F′,-M,p,M′) * sqrt((2F+1)*(2F′+1)*(2J+1)*(2J′+1)) * 
+            wigner3j(J,1,J′,-P,0,P′)
+        )
+    end
+end
 
-# function Zeeman_S(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)
-#     """
-#     Electron spin Zeeman
-#     """
-#     I,  S,  Λ,  J,  P,  Σ,  F,  M  = unpack(state)
-#     I′, S′, Λ′, J′, P′, Σ′, F′, M′ = unpack(state′)
+function Zeeman_S(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule, p::Int64)
+    """
+    Electron spin Zeeman interaction
+    See Brown & Carrington, eq. (9.58)
+    """
+    v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
+    v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
 
-#     if ~δ(S,S′) || ~δ(I,I′) || ~δ(M,M′) || ~δ(Λ,Λ′)
-#         return 0.0
-#     else
-#         return (
-#                 sum(
-#                     (-1)^(F-M+J+I+F′+1+J-P+S-Σ) * wigner6j(J,F,I,F′,J′,1) * 
-#                     wigner3j(F,1,F′,-M,0,M′) * sqrt((2F+1)*(2F′+1)) * 
-#                     wigner3j(J,1,J′,-P,q,P′) * sqrt((2J+1)*(2J′+1)) *
-#                     wigner3j(S,1,S,-Σ,q,Σ′) * sqrt(S*(S+1)*(2S+1))
-#                     for q ∈ -1:1
-#                 )
-#             )
-#     end
-# end
+    if ~delta(state, state′, :ℓ, :I, :S)
+        return 0.0
+    else
+        return (
+                sum(
+                    (-1)^p * (-1)^(F-M+J+I+F′+1+J-P+S-Σ) * wigner6j(J,F,I,F′,J′,1) * 
+                    wigner3j(F,1,F′,-M,p,M′) * sqrt((2F+1)*(2F′+1)) * 
+                    wigner3j(J,1,J′,-P,q,P′) * sqrt((2J+1)*(2J′+1)) *
+                    wigner3j(S,1,S,-Σ,q,Σ′) * sqrt(S*(S+1)*(2S+1))
+                    for q ∈ -1:1
+                )
+            )
+    end
+end
 
-# function Zeeman_gl(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)
-#     """
-#     From CaH optical Zeeman paper, Eq. 4
-#     """
-#     I,  S,  Λ,  J,  P,  Σ,  F,  M  = unpack(state)
-#     I′, S′, Λ′, J′, P′, Σ′, F′, M′ = unpack(state′)
+function Zeeman_gl′(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule, p::Int64)
+    """
+    
+    """
+v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
+v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
 
-#     if ~δ(Λ,Λ′) || ~δ(S,S′) || ~δ(I,I′)
-#         return 0.0
-#     else
-#         return (
-#             (-1)^(F-M) * wigner3j_(F,1,F′,-M,0,M′) * (-1)^(F′+J+I+1) * sqrt((2F+1)*(2F′+1)) *
-#             wigner6j_(J′,F′,I,F,J,1) * 
-#             sum(
-#                 (-1)^(J-P) * wigner3j_(J,1,J′,-P,q,P′) * sqrt((2J+1)*(2J′+1)) *
-#                 (-1)^(S-Σ) * wigner3j_(S,1,S,-Σ,q,Σ′) * sqrt((2S+1)*(2S′+1))
-#                 for q ∈ (-1,1)
-#             )
-#         )
-#     end
-# end
+    if delta(state, state′)
+        return 0.0
+    else
+        return (
+            (-1)^p * (-1)^(F-M) * wigner3j_(F,1,F′,-M,p,M′) * (-1)^(F′+J+I+1) * sqrt((2F+1)*(2F′+1)) *
+            wigner6j_(J′,F′,I,F,J,1) * 
+            sum(
+                δ(K′, K - 2q) * (-1)^(J-P+S-Σ) *
+                (-1)^(J-P) * wigner3j_(J,1,J′,-P,q,P′) * sqrt((2J+1)*(2J′+1)) *
+                (-1)^(S-Σ) * wigner3j_(S,1,S,-Σ,-q,Σ′) * sqrt(S*(S+1)*(2S+1))
+                for q ∈ (-1,1)
+            )
+        )
+    end
+end
+export Zeeman_gl′
+
+# def ZeemanParityZ_even_aBJ(K0,Sigma0,P0,J0,F0,M0,K1,Sigma1,P1,J1,F1,M1,S=1/2,I=1/2):
+#     if kronecker(K0,K1)*(not kronecker(M0,M1)):
+#         return 0
+#     else:
+#         return (-1)*(-1)**(F0-M0)*wigner_3j(F0,1,F1,-M0,0,M1)*\
+#             (-1)**(F1+J0+I+1)*np.sqrt((2*F0+1)*(2*F1+1))*wigner_6j(J1,F1,I,F0,J0,1)*\
+#             np.sqrt((2*J0+1)*(2*J1+1)*S*(S+1)*(2*S+1))*\
+#             sum([kronecker(K1,K0-2*q)*(-1)**(J0-P0+S-Sigma0)*wigner_3j(J0,1,J1,-P0,q,P1)*wigner_3j(S,1,S,-Sigma0,-q,Sigma1) for q in [-1,1]])

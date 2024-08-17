@@ -34,14 +34,16 @@ end
 export unpack
 
 function overlap(state::HundsCaseB_LinearMolecule, state′::HundsCaseB_LinearMolecule_Decoupled)
+    """
+    See eq. (5.187) in Brown & Carrington
+    """
     v_1,  v_2,  v_3,  S,  I,  Λ,  ℓ,  K,  N,  J,  F,  M_F  = unpack(state)
     v_1′, v_2′, v_3′, S′, I′, Λ′, ℓ′, K′, N′, M_N′, M_S′, M_I′ = unpack(state′)
-
     if ~delta(state, state′, :v_1, :v_2, :v_3, :Λ, :ℓ, :N)
         return 0.0
     else
         return sum(
-                (-1)^(J - I + M_F) * sqrt(2F + 1) * wigner3j(J, I, F, M_J, M_I′, -M_F)
+                  (-1)^(J - I + M_F) * sqrt(2F + 1) * wigner3j(J, I, F, M_J, M_I′, -M_F)
                 * (-1)^(N - S + M_J) * sqrt(2J + 1) * wigner3j(N, S, J, M_N′, M_S′, -M_J)
                 for M_J ∈ -J:J
             )
