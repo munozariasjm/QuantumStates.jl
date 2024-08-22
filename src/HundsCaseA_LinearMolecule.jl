@@ -43,8 +43,8 @@ function Rotation(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearM
     v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
     term1 = (J * (J + 1) + S * (S + 1) - 2 * P * Σ - K^2) * δ(Σ,Σ′) * δ(P,P′) # diagonal term
     term2 = ( # spin uncoupling
-        - 2 * (-1)^(J - P + S - Σ) * 
-            sqrt(J * (J + 1) * (2J + 1) * S * (S + 1) * (2S + 1)) * 
+        - 2 * (-1)^(J - P + S - Σ) *
+            sqrt(J * (J + 1) * (2J + 1) * S * (S + 1) * (2S + 1)) *
             sum(
                 wigner3j(J, 1, J, -P, q, P′) *
                 wigner3j(S, 1, S, -Σ, q, Σ′)
@@ -72,7 +72,7 @@ export Rotation_Δ
 function SpinOrbit(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)
     v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
     v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
-    return Λ * Σ * 
+    return Λ * Σ *
         δ(ℓ,ℓ′) * δ(Λ,Λ′) * δ(Σ,Σ′) * δ(J,J′) * δ(F,F′) * δ(M,M′)
 end
 export SpinOrbit
@@ -81,10 +81,10 @@ function SpinUncoupling(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_L
     # Brown & Carrington, eq. (8.364)
     v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
     v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
-    return -2 * (-1)^(J - P + S - Σ) * 
+    return -2 * (-1)^(J - P + S - Σ) *
         sqrt( J * (J + 1) * (2J + 1) * S * (S + 1) * (2S + 1) ) *
         sum(
-            wigner3j_(J, 1, J, -P, q, P′) * 
+            wigner3j_(J, 1, J, -P, q, P′) *
             wigner3j_(S, 1, S, -Σ, q, Σ′)
             for q ∈ (-1,1)
         ) *
@@ -119,7 +119,7 @@ function ΛDoubling_p2q(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_L
     """
     v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
     v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
-    return (-1)^(J - P) * (-1)^(S - Σ) * 
+    return (-1)^(J - P) * (-1)^(S - Σ) *
         sqrt( J * (J + 1) * (2J + 1) * S * (S + 1) * (2S + 1) ) *
         sum(
             δ(Λ′, Λ + 2q) *
@@ -149,7 +149,7 @@ function ℓDoubling(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_Line
     ) * δ(Σ,Σ′)
     # Add factors for G₊²???
     term2 = (
-        (-1)^(J - P + S - Σ) * 
+        (-1)^(J - P + S - Σ) *
         sqrt( J * (J + 1) * (2J + 1) * S * (S + 1) * (2S + 1) ) *
         sum(
             δ(ℓ′, ℓ + 2q) *
@@ -160,7 +160,7 @@ function ℓDoubling(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_Line
     )
     return (term1 - term2) * δ(Λ,Λ′) * δ(J,J′) * δ(F,F′) * δ(M,M′)
 end
-        
+
 function Hyperfine_IL(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)
     # Brown and Carrington, eq. (8.372)
     # Hirota, eq. (2.3.66)
@@ -172,9 +172,9 @@ function Hyperfine_IL(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_Lin
         return 0.0
     else
         return (
-            Λ′ * (-1)^(I + J + F′) * (-1)^(J - P) * 
+            Λ′ * (-1)^(I + J + F′) * (-1)^(J - P) *
             sqrt(I * (I + 1) * (2I + 1) * (2J + 1) * (2J′ + 1)) *
-            wigner6j(I, J, F′, J′, I, 1) * 
+            wigner6j(I, J, F′, J′, I, 1) *
             wigner3j(J, 1, J′, -P, 0, P′)
         )
     end
@@ -190,7 +190,7 @@ function Hyperfine_IF(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_Lin
         return 0.0
     else
         return (
-            (-1)^(I + J + F′) * (-1)^(S - Σ) * (-1)^(J - P) * 
+            (-1)^(I + J + F′) * (-1)^(S - Σ) * (-1)^(J - P) *
             sqrt(I * (I + 1) * (2I + 1) * (2J + 1) * (2J′ + 1) * S * (S + 1) * (2S + 1)) *
             wigner6j(I, J, F′, J′, I, 1) *
             sum(
@@ -202,7 +202,7 @@ function Hyperfine_IF(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_Lin
     end
 end
 export Hyperfine_IF
-    
+
 function Hyperfine_Dipolar_c(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule)
     v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
     v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
@@ -212,14 +212,14 @@ function Hyperfine_Dipolar_c(state::HundsCaseA_LinearMolecule, state′::HundsCa
         sqrt( (2J + 1) * (2J′ + 1) ) *
         sqrt( S * (S + 1) * (2S + 1) ) *
         sum(
-            (-1)^q * 
+            (-1)^q *
             wigner3j_(J, 1, J′, -P, q, P) *
             sum(
                 wigner3j_(1, 2, 1, q′, 0, -q) *
                 wigner3j_(S, 1, S, -Σ, q′, Σ′)
                 for q′ ∈ -1:1
             ) for q ∈ -1:1
-        ) * 
+        ) *
         δ(F, F′) * δ(M, M′)
 end
 export Hyperfine_Dipolar_c
@@ -233,8 +233,8 @@ function Hyperfine_Dipolar_d(state::HundsCaseA_LinearMolecule, state′::HundsCa
         sqrt( (2J + 1) * (2J′ + 1) ) *
         sqrt( S * (S + 1) * (2S + 1) ) *
         sum(
-            (-1)^q * 
-            wigner3j_(J, 1, J′, -P, q, P) *
+            (-1)^q *
+            wigner3j_(J, 1, J′, -P, q, P′) *
             sum(
                 (
                     wigner3j_(1, 2, 1, q′, 2, -q) +
@@ -243,7 +243,7 @@ function Hyperfine_Dipolar_d(state::HundsCaseA_LinearMolecule, state′::HundsCa
                 wigner3j_(S, 1, S, -Σ, q′, Σ′)
                 for q′ ∈ -1:1
             ) for q ∈ -1:1
-        ) * 
+        ) *
         δ(F, F′) * δ(M, M′)
 end
 export Hyperfine_Dipolar_d
@@ -290,8 +290,8 @@ function Zeeman_L(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearM
         return 0.0
     else
         return (
-            (-1)^p * Λ * (-1)^(F-M+F′+J+I+1+J-P) * wigner6j(J,F,I,F′,J′,1) * 
-            wigner3j(F,1,F′,-M,p,M′) * sqrt((2F+1)*(2F′+1)*(2J+1)*(2J′+1)) * 
+            (-1)^p * Λ * (-1)^(F-M+F′+J+I+1+J-P) * wigner6j(J,F,I,F′,J′,1) *
+            wigner3j(F,1,F′,-M,p,M′) * sqrt((2F+1)*(2F′+1)*(2J+1)*(2J′+1)) *
             wigner3j(J,1,J′,-P,0,P′)
         )
     end
@@ -310,8 +310,8 @@ function Zeeman_S(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearM
     else
         return (
                 sum(
-                    (-1)^p * (-1)^(F-M+J+I+F′+1+J-P+S-Σ) * wigner6j(J,F,I,F′,J′,1) * 
-                    wigner3j(F,1,F′,-M,p,M′) * sqrt((2F+1)*(2F′+1)) * 
+                    (-1)^p * (-1)^(F-M+J+I+F′+1+J-P+S-Σ) * wigner6j(J,F,I,F′,J′,1) *
+                    wigner3j(F,1,F′,-M,p,M′) * sqrt((2F+1)*(2F′+1)) *
                     wigner3j(J,1,J′,-P,q,P′) * sqrt((2J+1)*(2J′+1)) *
                     wigner3j(S,1,S,-Σ,q,Σ′) * sqrt(S*(S+1)*(2S+1))
                     for q ∈ -1:1
@@ -322,7 +322,7 @@ end
 
 function Zeeman_gl′(state::HundsCaseA_LinearMolecule, state′::HundsCaseA_LinearMolecule, p::Int64)
     """
-    
+
     """
 v_1,  v_2,  ℓ,  v_3,  Λ,  K,  I,  S,  Σ,  J,  P,  F,  M  = unpack(state)
 v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′, M′ = unpack(state′)
@@ -332,7 +332,7 @@ v_1′, v_2′, ℓ′, v_3′, Λ′, K′, I′, S′, Σ′, J′, P′, F′
     else
         return (
             (-1)^p * (-1)^(F-M) * wigner3j_(F,1,F′,-M,p,M′) * (-1)^(F′+J+I+1) * sqrt((2F+1)*(2F′+1)) *
-            wigner6j_(J′,F′,I,F,J,1) * 
+            wigner6j_(J′,F′,I,F,J,1) *
             sum(
                 δ(K′, K - 2q) * (-1)^(J-P+S-Σ) *
                 (-1)^(J-P) * wigner3j_(J,1,J′,-P,q,P′) * sqrt((2J+1)*(2J′+1)) *
